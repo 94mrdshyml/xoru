@@ -1,13 +1,87 @@
-name: Deploy Pipeline
+name: CI & Deployment Pipeline
 
 on:
   push:
     branches:
       - main
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
 
 jobs:
+  unit-and-typecheck:
+    name: 1. Unit Tests & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Node & Python Dependencies
+        run: |
+          bun install
+          pip install -r apps/backend/requirements.txt pytest pytest-asyncio
+
+      - name: Frontend Typecheck
+        run: bun --cwd apps/frontend run typecheck
+
+      - name: Backend Pytest Unit Tests
+        run: python -m pytest
+
+      - name: Frontend Build Verification
+        run: bun --cwd apps/frontend run build
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+
+  e2e-tests:
+    name: 2. Playwright E2E Tests
+    needs: unit-and-typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Node Dependencies
+        run: bun install
+
+      - name: Install Playwright Browsers
+        run: bun --cwd apps/frontend x playwright install --with-deps chromium
+
+      - name: Run Playwright E2E Tests
+        run: bun --cwd apps/frontend run test:e2e
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_APP_URL: 'http://localhost:3000'
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: apps/frontend/playwright-report/
+          retention-days: 14
+
   deploy-backend:
-    name: Deploy Backend Worker (xoru-backend)
+    name: 3. Deploy Backend Worker (xoru-backend)
+    needs: [unit-and-typecheck, e2e-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -26,8 +100,9 @@ jobs:
           workingDirectory: 'apps/backend'
 
   deploy-frontend:
-    name: Deploy Frontend Worker (xoru-frontend)
-    needs: deploy-backend
+    name: 4. Deploy Frontend Worker (xoru-frontend)
+    needs: [deploy-backend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
