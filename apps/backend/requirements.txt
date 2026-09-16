@@ -2,8 +2,5 @@ fastapi
 pydantic
 sqlalchemy
 asyncpg
-alembic
 pyjwt
 httpx
-pytest
-pytest-asyncio
