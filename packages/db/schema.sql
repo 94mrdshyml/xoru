@@ -106,3 +106,4 @@ CREATE POLICY tenant_isolation_retargeting_pixels ON retargeting_pixels
 CREATE POLICY tenant_isolation_click_events ON click_events
     FOR ALL
     USING (tenant_id = CURRENT_SETTING('app.current_tenant_id', true));
+

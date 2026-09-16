@@ -46,3 +46,4 @@ class UserContextResponse(BaseModel):
     tenant_id: str
     user_id: str
     org_role: Optional[str] = None
+

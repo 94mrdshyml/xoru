@@ -51,3 +51,4 @@ async def get_tenant_db_session(tenant_id: str) -> AsyncGenerator[AsyncSession, 
                 {"tenant_id": tenant_id}
             )
             yield session
+

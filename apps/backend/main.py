@@ -4,8 +4,9 @@ Tagline: Short Link. Real Intelligence.
 """
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse
 from apps.backend.api.v1.auth import router as auth_router
+from apps.backend.api.v1.workspaces import router as workspaces_router
 
 app = FastAPI(
     title="Xoru Backend API",
@@ -26,6 +27,7 @@ app.add_middleware(
 
 # Register API Routers
 app.include_router(auth_router)
+app.include_router(workspaces_router)
 
 @app.get("/api/v1/health")
 async def health_check():
