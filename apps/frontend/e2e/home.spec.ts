@@ -19,3 +19,4 @@ test.describe('Homepage & Public Routes', () => {
     await expect(page.locator('h1')).toContainText('Create your Xoru account');
   });
 });
+
