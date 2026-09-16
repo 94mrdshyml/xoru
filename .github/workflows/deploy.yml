@@ -61,10 +61,12 @@ jobs:
         run: bun install
 
       - name: Install Playwright Browsers
-        run: bun --cwd apps/frontend x playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/frontend
 
       - name: Run Playwright E2E Tests
-        run: bun --cwd apps/frontend run test:e2e
+        run: bun run test:e2e
+        working-directory: apps/frontend
         env:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
