@@ -2,8 +2,10 @@
 Xoru Backend Cloudflare Worker Entrypoint (Python / FastAPI)
 Tagline: Short Link. Real Intelligence.
 """
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
+from apps.backend.api.v1.auth import router as auth_router
 
 app = FastAPI(
     title="Xoru Backend API",
@@ -13,9 +15,21 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
+# CORS Middleware Configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register API Routers
+app.include_router(auth_router)
+
 @app.get("/api/v1/health")
 async def health_check():
-    """Health check endpoint to verify worker status."""
+    """Health check endpoint to verify worker & API status."""
     return {
         "status": "healthy",
         "service": "xoru-backend",
@@ -29,12 +43,10 @@ async def redirect_short_link(code_or_slug: str, request: Request):
     Public short link redirection endpoint.
     Performs sub-10ms lookup against Cloudflare KV / Neon DB.
     """
-    # Placeholder redirection for Session 1 skeleton
-    if code_or_slug == "health":
+    if code_or_slug in ("health", "docs", "openapi.json"):
         return await health_check()
         
     return JSONResponse(
         status_code=404,
         content={"error": {"code": "LINK_NOT_FOUND", "message": f"Short link '{code_or_slug}' not found."}}
     )
-

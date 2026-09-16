@@ -25,21 +25,36 @@ This log tracks feature additions, technical decisions, architectural changes, a
   - [`README.md`](file:///c:/vibe%20coding/xoru/README.md) — Project onboarding guide.
 - **Skills Activated**: `impeccable`, `design-taste-frontend`, `caveman` (34 total skills installed in `.\.agents\skills\`).
 
+---
+
+## Session 2 — Authentication & Multi-Tenant Neon RLS Setup
+
+**Date & Time (IST):** 2026-09-16 19:53 IST  
+**Status:** Completed  
+**Branch:** `feature/session-02-auth-neon-rls`  
+
+### What We Built
+- **Neon DB Schema & RLS Policies ([packages/db/schema.sql](file:///c:/vibe%20coding/xoru/packages/db/schema.sql))**: Created database table definitions (`workspaces`, `links`, `smart_routes`, `retargeting_pixels`, `click_events`) and Postgres Row-Level Security (RLS) policies enforcing `tenant_id = CURRENT_SETTING('app.current_tenant_id', true)`.
+- **Backend Async RLS Engine ([apps/backend/core/db.py](file:///c:/vibe%20coding/xoru/apps/backend/core/db.py))**: Implemented `get_tenant_db_session(tenant_id)` context manager that executes `SET LOCAL app.current_tenant_id = :tenant_id` inside every transaction block.
+- **Clerk JWT & Tenant Context Extraction ([apps/backend/core/auth.py](file:///c:/vibe%20coding/xoru/apps/backend/core/auth.py))**: Created FastAPI dependency `get_tenant_context` to decode Bearer JWT claims, extract user ID and active Clerk Organization ID, with dev testing fallback (`X-Tenant-Id`).
+- **Auth Endpoint ([apps/backend/api/v1/auth.py](file:///c:/vibe%20coding/xoru/apps/backend/api/v1/auth.py))**: Endpoint `/api/v1/auth/me` to test JWT validation and tenant context extraction.
+- **Frontend Clerk Integration ([apps/frontend/middleware.ts](file:///c:/vibe%20coding/xoru/apps/frontend/middleware.ts))**: Configured `@clerk/nextjs` middleware and Open Sans layout root ([apps/frontend/app/layout.tsx](file:///c:/vibe%20coding/xoru/apps/frontend/app/layout.tsx)).
+- **UI Components**: Built `MorphButton.tsx` (state morphing button state machine) and `CustomModal.tsx` (glassmorphic modal dialog with zero browser native dialogs).
+- **Backend Test Suite ([apps/backend/tests/test_auth.py](file:///c:/vibe%20coding/xoru/apps/backend/tests/test_auth.py))**: Pytest suite verifying health check, missing auth rejection, and dev tenant header extraction (3 tests passing).
+
 ### How We Built It
-- Structured multi-tenant isolation model using Clerk Organization ID mapped to Neon DB Postgres Row-Level Security (`SET LOCAL app.current_tenant_id`).
-- Standardized Bun as the primary package manager (`bun install`).
-- Configured `.gitignore` to keep `.env` strictly private while tracking `.env.example`.
+- Strict enforcement of multi-tenancy at database engine level using Postgres RLS + SQLAlchemy 2.0 async transaction wrapper.
+- Adhered strictly to [`docs/DESIGN.md`](file:///c:/vibe%20coding/xoru/docs/DESIGN.md) for custom modals and state morphing micro-interactions.
 
 ### In Scope
-- Monorepo layout, environment config, Cloudflare authentication & KV creation, documentation suite, CI/CD pipeline, and prefixed ID generators.
+- Neon RLS schema, DB connection engine, Clerk JWT verification middleware, Auth API routes, Next.js Clerk middleware, state morphing UI components, and Pytest suite.
 
 ### Out of Scope
-- Session 2 Authentication & Neon RLS database migrations (scheduled for Session 2).
+- Short link URL generation algorithm & Cloudflare KV sync (scheduled for Session 3).
 
 ### Breaking Changes
 - NONE
 
 ### Notes for Future Sessions
-- **Session 2 Focus**: Integrate Clerk Auth SDK in Next.js & Python backend, configure Neon Postgres connection pool, create Alembic migrations for `workspaces`, `links`, and `click_events`, and apply Neon RLS policies (`SET LOCAL app.current_tenant_id`).
-- All primary keys must use `generateId('prefix')` from `packages/db/id.ts` or `apps/backend/utils/id.py`.
-- UI components must strictly follow [`docs/DESIGN.md`](file:///c:/vibe%20coding/xoru/docs/DESIGN.md) (Indigo primary color, Open Sans font, button state morphing, strictly ZERO native browser dialogs).
+- **Session 3 Focus**: Build the core link shortening engine, base62 unique code generator, custom slug validation, Cloudflare KV edge cache synchronization, and link CRUD API endpoints.
+- All backend database operations MUST use `async with get_tenant_db_session(tenant_id) as session:` to maintain Neon RLS safety.
