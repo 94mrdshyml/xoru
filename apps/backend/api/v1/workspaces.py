@@ -20,6 +20,7 @@ class OnboardRequest(BaseModel):
 
 class WorkspaceResponse(BaseModel):
     id: str
+    org_id: str
     name: str
     slug: str
 
@@ -29,28 +30,46 @@ async def onboard_user_workspace(
     context: TenantContext = Depends(get_tenant_context)
 ):
     """
-    Onboards a newly registered user:
-    1. Stores first_name and last_name separately.
-    2. Automatically provisions '<First Name>'s Workspace' in Neon DB.
+    Onboards a newly registered user & organization:
+    1. Provisions top-level Organization (org_xxx) from Clerk org context.
+    2. Automatically provisions '<First Name>'s Workspace' (wrk_xxx) under the organization.
     """
-    tenant_id = context.tenant_id
-    workspace_id = generate_id("org")
-    slug_base = f"{data.first_name.lower()}-workspace".replace(" ", "-")
-    slug = f"{slug_base}-{generate_id('org')[4:10]}"
+    org_id = context.tenant_id
+    org_name = f"{data.first_name}'s Organization"
+    org_slug = f"org-{data.first_name.lower()}-{generate_id('org')[4:10]}"
 
-    async with get_tenant_db_session(tenant_id) as session:
-        # Insert workspace into Neon DB
+    workspace_id = generate_id("wrk")
+    slug_base = data.first_name.lower().replace(" ", "-")
+    workspace_slug = f"{slug_base}-workspace-{generate_id('wrk')[4:10]}"
+
+    async with get_tenant_db_session(org_id) as session:
+        # 1. Provision Organization
         await session.execute(
             text("""
-                INSERT INTO workspaces (id, name, slug)
-                VALUES (:id, :name, :slug)
+                INSERT INTO organizations (id, name, slug)
+                VALUES (:org_id, :org_name, :org_slug)
                 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
             """),
-            {"id": tenant_id, "name": data.workspace_name, "slug": slug}
+            {"org_id": org_id, "org_name": org_name, "org_slug": org_slug}
+        )
+
+        # 2. Provision Default Workspace under Organization
+        await session.execute(
+            text("""
+                INSERT INTO workspaces (id, org_id, name, slug)
+                VALUES (:workspace_id, :org_id, :name, :slug)
+            """),
+            {
+                "workspace_id": workspace_id,
+                "org_id": org_id,
+                "name": data.workspace_name,
+                "slug": workspace_slug
+            }
         )
 
     return WorkspaceResponse(
-        id=tenant_id,
+        id=workspace_id,
+        org_id=org_id,
         name=data.workspace_name,
-        slug=slug
+        slug=workspace_slug
     )

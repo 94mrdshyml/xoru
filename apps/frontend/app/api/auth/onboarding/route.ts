@@ -1,17 +1,18 @@
 import { currentUser, auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
-export async function GET() {
+export async function POST(request: Request) {
+  const { userId, getToken } = await auth();
   const user = await currentUser();
-  const { getToken } = await auth();
 
-  if (!user) {
-    return NextResponse.redirect(new URL('/sign-in', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'));
+  if (!userId || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const firstName = user.firstName || 'User';
-  const lastName = user.lastName || '';
-  const email = user.emailAddresses[0]?.emailAddress || '';
+  const body = await request.json().catch(() => ({}));
+  const firstName = body.firstName || user.firstName || 'User';
+  const lastName = body.lastName || user.lastName || '';
+  const email = body.email || user.emailAddresses[0]?.emailAddress || '';
   const workspaceName = `${firstName}'s Workspace`;
 
   try {
@@ -19,7 +20,7 @@ export async function GET() {
     const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:8787';
 
     // Call Python backend to ensure user and automatic workspace are provisioned in Neon DB
-    await fetch(`${backendUrl}/api/v1/workspaces/onboard`, {
+    const res = await fetch(`${backendUrl}/api/v1/workspaces/onboard`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -32,10 +33,21 @@ export async function GET() {
         workspace_name: workspaceName,
       }),
     });
-  } catch (error) {
-    console.error('Onboarding workspace creation error:', error);
-  }
 
-  // Redirect to dashboard
-  return NextResponse.redirect(new URL('/dashboard', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'));
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      console.error('Backend onboarding failed:', errData);
+      return NextResponse.json({ error: 'Backend onboarding failed', detail: errData }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, workspaceName });
+  } catch (error: any) {
+    console.error('Onboarding workspace creation error:', error);
+    return NextResponse.json({ error: error.message || 'Onboarding error' }, { status: 500 });
+  }
+}
+
+export async function GET() {
+  // Direct GET request from Clerk redirect -> redirect to /onboarding page for client token hydration
+  return NextResponse.redirect(new URL('/onboarding', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'));
 }

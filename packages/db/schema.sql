@@ -3,19 +3,33 @@
 -- Tagline: Short Link. Real Intelligence.
 -- ==============================================================================
 
--- 1. Workspaces (Tenants)
-CREATE TABLE IF NOT EXISTS workspaces (
-    id VARCHAR(32) PRIMARY KEY, -- org_xxx
+-- 1. Organizations (Clerk Organization / Top-Level Tenant)
+CREATE TABLE IF NOT EXISTS organizations (
+    id VARCHAR(64) PRIMARY KEY, -- org_xxx (Clerk Org ID)
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(255) UNIQUE NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 2. Short Links Table
+-- 2. Workspaces (Belongs to an Organization: 1 Organization -> N Workspaces)
+CREATE TABLE IF NOT EXISTS workspaces (
+    id VARCHAR(64) PRIMARY KEY, -- wrk_xxx
+    org_id VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(org_id, slug)
+);
+
+CREATE INDEX IF NOT EXISTS idx_workspaces_org_id ON workspaces(org_id);
+
+-- 3. Short Links Table
 CREATE TABLE IF NOT EXISTS links (
-    id VARCHAR(32) PRIMARY KEY, -- lnk_xxx
-    tenant_id VARCHAR(32) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    id VARCHAR(64) PRIMARY KEY, -- lnk_xxx
+    org_id VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    workspace_id VARCHAR(64) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     destination_url TEXT NOT NULL,
     short_code VARCHAR(32) UNIQUE NOT NULL, -- e.g. 'a9x2k'
@@ -23,20 +37,22 @@ CREATE TABLE IF NOT EXISTS links (
     redirect_type INT NOT NULL DEFAULT 301,  -- 301 (Permanent) or 302 (Temporary)
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     expires_at TIMESTAMPTZ,
-    created_by VARCHAR(32) NOT NULL,        -- usr_xxx
+    created_by VARCHAR(64) NOT NULL,        -- usr_xxx
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_links_tenant_id ON links(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_links_org_id ON links(org_id);
+CREATE INDEX IF NOT EXISTS idx_links_workspace_id ON links(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_links_short_code ON links(short_code);
 CREATE INDEX IF NOT EXISTS idx_links_custom_slug ON links(custom_slug) WHERE custom_slug IS NOT NULL;
 
--- 3. Smart Dynamic Routes Table
+-- 4. Smart Dynamic Routes Table
 CREATE TABLE IF NOT EXISTS smart_routes (
-    id VARCHAR(32) PRIMARY KEY, -- srt_xxx
-    link_id VARCHAR(32) NOT NULL REFERENCES links(id) ON DELETE CASCADE,
-    tenant_id VARCHAR(32) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    id VARCHAR(64) PRIMARY KEY, -- srt_xxx
+    link_id VARCHAR(64) NOT NULL REFERENCES links(id) ON DELETE CASCADE,
+    org_id VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    workspace_id VARCHAR(64) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     rule_type VARCHAR(32) NOT NULL, -- 'device', 'geo', 'ab_test'
     rule_condition JSONB NOT NULL,  -- e.g. {"device": "ios"} or {"country": "US"}
     target_url TEXT NOT NULL,
@@ -45,22 +61,25 @@ CREATE TABLE IF NOT EXISTS smart_routes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_smart_routes_link_id ON smart_routes(link_id);
+CREATE INDEX IF NOT EXISTS idx_smart_routes_org_id ON smart_routes(org_id);
 
--- 4. Retargeting Pixels Table
+-- 5. Retargeting Pixels Table
 CREATE TABLE IF NOT EXISTS retargeting_pixels (
-    id VARCHAR(32) PRIMARY KEY, -- pxl_xxx
-    link_id VARCHAR(32) NOT NULL REFERENCES links(id) ON DELETE CASCADE,
-    tenant_id VARCHAR(32) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    id VARCHAR(64) PRIMARY KEY, -- pxl_xxx
+    link_id VARCHAR(64) NOT NULL REFERENCES links(id) ON DELETE CASCADE,
+    org_id VARCHAR(64) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    workspace_id VARCHAR(64) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     platform VARCHAR(32) NOT NULL, -- 'facebook', 'google', 'tiktok', 'custom'
     pixel_id VARCHAR(128) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 5. Click Events Table (Neon DB Basic Analytics)
+-- 6. Click Events Table (Neon DB Basic Analytics)
 CREATE TABLE IF NOT EXISTS click_events (
-    id VARCHAR(32) PRIMARY KEY, -- evt_xxx
-    tenant_id VARCHAR(32) NOT NULL,
-    link_id VARCHAR(32) NOT NULL REFERENCES links(id) ON DELETE CASCADE,
+    id VARCHAR(64) PRIMARY KEY, -- evt_xxx
+    org_id VARCHAR(64) NOT NULL,
+    workspace_id VARCHAR(64) NOT NULL,
+    link_id VARCHAR(64) NOT NULL REFERENCES links(id) ON DELETE CASCADE,
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     country VARCHAR(8),
     city VARCHAR(128),
@@ -72,38 +91,43 @@ CREATE TABLE IF NOT EXISTS click_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_click_events_link_time ON click_events(link_id, timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_click_events_tenant_time ON click_events(tenant_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_click_events_org_time ON click_events(org_id, timestamp DESC);
 
 -- ==============================================================================
 -- NEON POSTGRES ROW-LEVEL SECURITY (RLS) POLICIES
 -- ==============================================================================
 
 -- Enable RLS on Tenant-Scoped Tables
+ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE smart_routes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE retargeting_pixels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE click_events ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if re-applying
+DROP POLICY IF EXISTS tenant_isolation_workspaces ON workspaces;
 DROP POLICY IF EXISTS tenant_isolation_links ON links;
 DROP POLICY IF EXISTS tenant_isolation_smart_routes ON smart_routes;
 DROP POLICY IF EXISTS tenant_isolation_retargeting_pixels ON retargeting_pixels;
 DROP POLICY IF EXISTS tenant_isolation_click_events ON click_events;
 
--- Create Tenant Isolation Policies
+-- Create Tenant Isolation Policies (enforcing org_id)
+CREATE POLICY tenant_isolation_workspaces ON workspaces
+    FOR ALL
+    USING (org_id = CURRENT_SETTING('app.current_tenant_id', true));
+
 CREATE POLICY tenant_isolation_links ON links
     FOR ALL
-    USING (tenant_id = CURRENT_SETTING('app.current_tenant_id', true));
+    USING (org_id = CURRENT_SETTING('app.current_tenant_id', true));
 
 CREATE POLICY tenant_isolation_smart_routes ON smart_routes
     FOR ALL
-    USING (tenant_id = CURRENT_SETTING('app.current_tenant_id', true));
+    USING (org_id = CURRENT_SETTING('app.current_tenant_id', true));
 
 CREATE POLICY tenant_isolation_retargeting_pixels ON retargeting_pixels
     FOR ALL
-    USING (tenant_id = CURRENT_SETTING('app.current_tenant_id', true));
+    USING (org_id = CURRENT_SETTING('app.current_tenant_id', true));
 
 CREATE POLICY tenant_isolation_click_events ON click_events
     FOR ALL
-    USING (tenant_id = CURRENT_SETTING('app.current_tenant_id', true));
-
+    USING (org_id = CURRENT_SETTING('app.current_tenant_id', true));

@@ -1,16 +1,36 @@
-name: CD Deploy
+name: Deploy Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
-  deploy:
-    name: Deploy Cloudflare Workers
-    needs: [validate]
+  deploy-backend:
+    name: Deploy Backend Worker (xoru-backend)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Deploy Backend to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: 'apps/backend'
+
+  deploy-frontend:
+    name: Deploy Frontend Worker (xoru-frontend)
+    needs: deploy-backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Bun
@@ -18,25 +38,17 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Install Dependencies & Build Frontend
+        run: |
+          bun install
+          bun --cwd apps/frontend run build
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
 
-      - name: Install Dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Deploy Cloudflare Worker Backend
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: 'apps/backend'
-
-      - name: Deploy Cloudflare Worker Frontend
+      - name: Deploy Frontend to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: 'apps/frontend'
-

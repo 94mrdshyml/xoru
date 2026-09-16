@@ -16,6 +16,7 @@ dist/
 .next/
 out/
 build/
+*.tsbuildinfo
 
 # Python Virtualenv & Cache
 __pycache__/
@@ -43,4 +44,3 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
-

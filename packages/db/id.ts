@@ -3,10 +3,10 @@ import { customAlphabet } from 'nanoid';
 // Standard 24-character alphanumeric nanoid generator
 const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', 24);
 
-export type IdPrefix = 'org' | 'usr' | 'lnk' | 'srt' | 'pxl' | 'evt' | 'key';
+export type IdPrefix = 'org' | 'wrk' | 'usr' | 'lnk' | 'srt' | 'pxl' | 'evt' | 'key';
 
 /**
- * Generates a Stripe-style prefixed ID (e.g. `lnk_2k9x8a7b6c5d4e3f2g1h0i9j`).
+ * Generates a Stripe-style prefixed ID (e.g. `lnk_2k9x8a7b6c5d4e3f2g1h0i9j` or `wrk_...`).
  */
 export function generateId(prefix: IdPrefix): string {
   return `${prefix}_${nanoid()}`;
@@ -20,4 +20,3 @@ export function validateId(id: string, expectedPrefix: IdPrefix): boolean {
   const parts = id.split('_');
   return parts.length === 2 && parts[0] === expectedPrefix && parts[1].length === 24;
 }
-

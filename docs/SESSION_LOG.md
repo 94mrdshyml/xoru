@@ -14,7 +14,7 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - **Monorepo Directory Skeleton**: Created `apps/frontend` (Next.js Worker), `apps/backend` (Python FastAPI Worker), `packages/db` (shared DB schemas & ID generators), and `packages/config`.
 - **Cloudflare Integration**: Configured `wrangler` CLI via **Bun**, authenticated API Token (`mridu@indexdaily.in`), and provisioned global KV namespace `xoru-backend-XORU_KV` (`42b345ca94e942a98d30092527e70184`).
 - **CI/CD Automation**: Configured GitHub Actions workflows [`.github/workflows/ci.yml`](file:///c:/vibe%20coding/xoru/.github/workflows/ci.yml) and [`.github/workflows/deploy.yml`](file:///c:/vibe%20coding/xoru/.github/workflows/deploy.yml) for automated linting, typechecking, testing, and deployment to Cloudflare Workers.
-- **Prefixed ID Helpers**: Created Stripe-style prefixed ID generators [`packages/db/id.ts`](file:///c:/vibe%20coding/xoru/packages/db/id.ts) and [`apps/backend/utils/id.py`](file:///c:/vibe%20coding/xoru/apps/backend/utils/id.py) (`lnk_`, `usr_`, `org_`, `evt_`, `srt_`, `pxl_`, `key_`).
+- **Prefixed ID Helpers**: Created Stripe-style prefixed ID generators [`packages/db/id.ts`](file:///c:/vibe%20coding/xoru/packages/db/id.ts) and [`apps/backend/utils/id.py`](file:///c:/vibe%20coding/xoru/apps/backend/utils/id.py) (`org_`, `wrk_`, `usr_`, `lnk_`, `srt_`, `pxl_`, `evt_`, `key_`).
 - **Complete Documentation Suite**:
   - [`GEMINI.md`](file:///c:/vibe%20coding/xoru/GEMINI.md) — Master agent context & memory.
   - [`docs/DESIGN.md`](file:///c:/vibe%20coding/xoru/docs/DESIGN.md) — Indigo brand theme (`#4F46E5`), Open Sans typography, and Button State Morphing micro-interactions.
@@ -27,27 +27,30 @@ This log tracks feature additions, technical decisions, architectural changes, a
 
 ---
 
-## Session 2 — Authentication & Multi-Tenant Neon RLS Setup
+## Session 2 — Authentication, Multi-Tenant RLS & 1 Org : N Workspaces Architecture
 
-**Date & Time (IST):** 2026-09-16 19:53 IST  
+**Date & Time (IST):** 2026-09-16 20:31 IST  
 **Status:** Completed  
-**Branch:** `feature/session-02-auth-neon-rls`  
+**Branch:** `main`  
 
 ### What We Built
-- **Neon DB Schema & RLS Policies ([packages/db/schema.sql](file:///c:/vibe%20coding/xoru/packages/db/schema.sql))**: Created database table definitions (`workspaces`, `links`, `smart_routes`, `retargeting_pixels`, `click_events`) and Postgres Row-Level Security (RLS) policies enforcing `tenant_id = CURRENT_SETTING('app.current_tenant_id', true)`.
-- **Backend Async RLS Engine ([apps/backend/core/db.py](file:///c:/vibe%20coding/xoru/apps/backend/core/db.py))**: Implemented `get_tenant_db_session(tenant_id)` context manager that executes `SET LOCAL app.current_tenant_id = :tenant_id` inside every transaction block.
-- **Clerk JWT & Tenant Context Extraction ([apps/backend/core/auth.py](file:///c:/vibe%20coding/xoru/apps/backend/core/auth.py))**: Created FastAPI dependency `get_tenant_context` to decode Bearer JWT claims, extract user ID and active Clerk Organization ID, with dev testing fallback (`X-Tenant-Id`).
-- **Auth Endpoint ([apps/backend/api/v1/auth.py](file:///c:/vibe%20coding/xoru/apps/backend/api/v1/auth.py))**: Endpoint `/api/v1/auth/me` to test JWT validation and tenant context extraction.
-- **Frontend Clerk Integration ([apps/frontend/middleware.ts](file:///c:/vibe%20coding/xoru/apps/frontend/middleware.ts))**: Configured `@clerk/nextjs` middleware and Open Sans layout root ([apps/frontend/app/layout.tsx](file:///c:/vibe%20coding/xoru/apps/frontend/app/layout.tsx)).
-- **UI Components**: Built `MorphButton.tsx` (state morphing button state machine) and `CustomModal.tsx` (glassmorphic modal dialog with zero browser native dialogs).
-- **Backend Test Suite ([apps/backend/tests/test_auth.py](file:///c:/vibe%20coding/xoru/apps/backend/tests/test_auth.py))**: Pytest suite verifying health check, missing auth rejection, and dev tenant header extraction (3 tests passing).
+- **1 Organization : N Workspaces Database Hierarchy ([packages/db/schema.sql](file:///c:/vibe%20coding/xoru/packages/db/schema.sql), [docs/DATABASE_SCHEMA.md](file:///c:/vibe%20coding/xoru/docs/DATABASE_SCHEMA.md))**:
+  - Created `organizations` table (`id` prefix `org_`, mapping to Clerk Org ID) as top-level tenant.
+  - Created `workspaces` table (`id` prefix `wrk_`, with `org_id REFERENCES organizations(id)` ON DELETE CASCADE). An organization can contain multiple workspaces.
+  - Scoped `links`, `smart_routes`, `retargeting_pixels`, and `click_events` to both `org_id` (tenant RLS isolation) and `workspace_id`.
+- **Backend Async RLS Engine ([apps/backend/core/db.py](file:///c:/vibe%20coding/xoru/apps/backend/core/db.py))**: Implemented `get_tenant_db_session(tenant_id)` context manager executing `SET LOCAL app.current_tenant_id = :tenant_id` inside every transaction block.
+- **Backend Onboarding API ([apps/backend/api/v1/workspaces.py](file:///c:/vibe%20coding/xoru/apps/backend/api/v1/workspaces.py))**: `POST /api/v1/workspaces/onboard` provisions both the Organization (`org_xxx`) and the default Workspace (`wrk_xxx`, e.g. `<First Name>'s Workspace`).
+- **Frontend Clerk Auth Flow & Onboarding Page ([apps/frontend/app/onboarding/page.tsx](file:///c:/vibe%20coding/xoru/apps/frontend/app/onboarding/page.tsx))**:
+  - Styled Clerk Sign-In (`/sign-in`) & Sign-Up (`/sign-up`) components.
+  - Client onboarding page (`/onboarding`) with animated Indigo spinner for seamless token hydration and workspace provisioning without redirect loops.
+- **Backend Test Suite ([apps/backend/tests/test_auth.py](file:///c:/vibe%20coding/xoru/apps/backend/tests/test_auth.py))**: Pytest suite passing (3/3 tests green).
 
 ### How We Built It
-- Strict enforcement of multi-tenancy at database engine level using Postgres RLS + SQLAlchemy 2.0 async transaction wrapper.
-- Adhered strictly to [`docs/DESIGN.md`](file:///c:/vibe%20coding/xoru/docs/DESIGN.md) for custom modals and state morphing micro-interactions.
+- Multi-tenancy enforced at Postgres engine level using RLS policies + `SET LOCAL app.current_tenant_id = org_id`.
+- Explicit 1:N relational architecture between Organizations (`org_`) and Workspaces (`wrk_`).
 
 ### In Scope
-- Neon RLS schema, DB connection engine, Clerk JWT verification middleware, Auth API routes, Next.js Clerk middleware, state morphing UI components, and Pytest suite.
+- Organization & Workspace hierarchy, Neon RLS schema, DB connection engine, Clerk JWT verification middleware, Workspace onboarding API, Next.js Clerk middleware, state morphing UI components, and Pytest suite.
 
 ### Out of Scope
 - Short link URL generation algorithm & Cloudflare KV sync (scheduled for Session 3).
@@ -56,5 +59,5 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - NONE
 
 ### Notes for Future Sessions
-- **Session 3 Focus**: Build the core link shortening engine, base62 unique code generator, custom slug validation, Cloudflare KV edge cache synchronization, and link CRUD API endpoints.
-- All backend database operations MUST use `async with get_tenant_db_session(tenant_id) as session:` to maintain Neon RLS safety.
+- **Session 3 Focus**: Build the core link shortening engine, base62 unique code generator, custom slug validation, Cloudflare KV edge cache synchronization, and link CRUD API endpoints (`POST /api/v1/links`, `GET /api/v1/links`, `PATCH /api/v1/links/{id}`).
+- Links and smart routes must reference both `org_id` and `workspace_id`.
