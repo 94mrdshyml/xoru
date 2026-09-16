@@ -1,0 +1,44 @@
+name: CI Checks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: Lint, Typecheck & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install JS/TS Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f apps/backend/requirements.txt ]; then pip install -r apps/backend/requirements.txt; fi
+
+      - name: Run Typecheck
+        run: bun run typecheck
+
+      - name: Run Lint
+        run: bun run lint
+
+      - name: Run Tests
+        run: bun run test
+

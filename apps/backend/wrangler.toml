@@ -1,0 +1,12 @@
+name = "xoru-backend"
+main = "main.py"
+compatibility_date = "2024-09-16"
+compatibility_flags = ["python_workers"]
+
+kv_namespaces = [
+  { binding = "XORU_KV", id = "42b345ca94e942a98d30092527e70184" }
+]
+
+[vars]
+ENVIRONMENT = "development"
+

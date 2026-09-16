@@ -1,0 +1,10 @@
+{
+  "name": "@xoru/db",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./id.ts",
+  "dependencies": {
+    "nanoid": "^5.0.9"
+  }
+}
+

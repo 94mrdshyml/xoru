@@ -1,0 +1,22 @@
+{
+  "name": "xoru",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Short Link. Real Intelligence. Multi-tenant link shortening and intelligence platform.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "echo \"Build task placeholder\"",
+    "typecheck": "echo \"Typecheck placeholder\"",
+    "lint": "echo \"Lint placeholder\"",
+    "test": "echo \"Test placeholder\"",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3.100.0"
+  }
+}
+

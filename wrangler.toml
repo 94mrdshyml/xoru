@@ -1,0 +1,13 @@
+name = "xoru-backend"
+main = "apps/backend/main.py"
+compatibility_date = "2024-09-16"
+compatibility_flags = ["python_workers"]
+
+# Cloudflare KV Binding for sub-10ms short link redirects
+kv_namespaces = [
+  { binding = "XORU_KV", id = "42b345ca94e942a98d30092527e70184" }
+]
+
+[vars]
+ENVIRONMENT = "development"
+
