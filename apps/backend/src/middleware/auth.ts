@@ -15,10 +15,15 @@ declare module 'hono' {
 
 function parseJwtPayload(token: string): any {
   try {
-    const base64Url = token.split('.')[1]
-    if (!base64Url) return null
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-    return JSON.parse(Buffer.from(base64, 'base64').toString('utf-8'))
+    const parts = token.split('.')
+    if (parts.length < 2) return null
+    let base64Url = parts[1]
+    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    while (base64.length % 4 !== 0) {
+      base64 += '='
+    }
+    const jsonString = Buffer.from(base64, 'base64').toString('utf-8')
+    return JSON.parse(jsonString)
   } catch {
     return null
   }
