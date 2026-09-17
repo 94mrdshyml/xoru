@@ -10,9 +10,6 @@ const openSans = Open_Sans({
   display: 'swap',
 });
 
-export const runtime = 'edge';
-export const dynamic = 'force-dynamic';
-
 export const metadata: Metadata = {
   title: 'Xoru — Short Link. Real Intelligence.',
   description: 'High-performance multi-tenant link shortening and dynamic routing platform.',

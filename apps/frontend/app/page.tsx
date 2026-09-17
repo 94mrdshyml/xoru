@@ -1,8 +1,6 @@
 import Link from 'next/link';
 import { Link2, ArrowRight, Zap, Shield, Sparkles } from 'lucide-react';
 
-export const runtime = 'edge';
-
 export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">

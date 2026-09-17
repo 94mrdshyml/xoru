@@ -1,7 +1,5 @@
 import Link from 'next/link';
 
-export const runtime = 'edge';
-
 export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 text-slate-900 px-4">
