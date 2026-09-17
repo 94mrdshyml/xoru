@@ -357,6 +357,45 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - Live Frontend Dashboard: `https://xoru-frontend.mridu.workers.dev/dashboard`
 - **Session 10 Focus**: Smart Dynamic Routing rules (`smart_routes` table: Device OS, Geo-location, A/B percentage split) and click event analytics logging.
 
+---
+
+## Session 10 — Workspace Foreign Key Validation & Defensive Link Creation
+
+**Date & Time (IST):** 2026-09-17 21:28 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **Defensive Workspace Validation on Backend Link Creation ([`apps/backend/src/routes/links.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/routes/links.ts))**:
+  - Implemented workspace existence check before `INSERT INTO links`. The backend verifies if `effectiveWorkspaceId` actually exists in the `workspaces` table for the authenticated user.
+  - If invalid, missing, or synthesized by an outdated client, the backend automatically resolves the user's actual workspace ID from `workspaces`, or provisions a fresh default workspace (`Personal Workspace`).
+  - Structural prevention of `links_workspace_id_fkey` foreign key constraint violations.
+- **Client Workspace Synthesis Cleanup ([`CreateLinkModal.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/CreateLinkModal.tsx) & [`dashboard/layout.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/layout.tsx))**:
+  - Removed client-side fallback synthesis of synthetic `wrk_${cleanUserId}` strings.
+- **CI/CD Pipeline & Live Deployment Verification**:
+  - `npm run typecheck --prefix apps/frontend` passed with **0 TypeScript errors**.
+  - `bun test` in `apps/backend` passed **10/10 Vitest tests green**.
+  - GitHub Actions CI Pipeline (`35243519696`) passed 4/4 jobs 100% green.
+  - Live Workers (`xoru-frontend` and `xoru-backend`) deployed and verified live.
+
+### How We Built It
+- Backend validates workspace existence inside atomic transaction before inserting links.
+
+### In Scope
+- Workspace FK validation, client string cleanup, Vitest & Playwright verification, 100% green CI/CD deployment.
+
+### Out of Scope
+- Smart Dynamic Routing scheduled for Session 11.
+
+### Breaking Changes
+- NONE
+
+### Notes for Future Sessions
+- Live Backend Endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/health`
+- Live Frontend Dashboard: `https://xoru-frontend.mridu.workers.dev/dashboard`
+- **Session 11 Focus**: Smart Dynamic Routing rules (`smart_routes` table: Device OS, Geo-location, A/B percentage split) and click event analytics logging.
+
+
 
 
 
