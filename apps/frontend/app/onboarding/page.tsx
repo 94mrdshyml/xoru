@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Link2, Loader2, CheckCircle2 } from 'lucide-react';
 
+export const runtime = 'edge';
+
 export default function OnboardingPage() {
   const { user, isLoaded: isUserLoaded } = useUser();
   const { isLoaded: isAuthLoaded } = useAuth();

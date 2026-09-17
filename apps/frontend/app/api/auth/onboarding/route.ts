@@ -1,6 +1,8 @@
 import { currentUser, auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 export async function POST(request: Request) {
   const { userId, getToken } = await auth();
   const user = await currentUser();

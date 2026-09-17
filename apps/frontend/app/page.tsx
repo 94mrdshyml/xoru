@@ -3,6 +3,8 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { Link2, ArrowRight, Zap, Shield, Sparkles } from 'lucide-react';
 
+export const runtime = 'edge';
+
 export default async function HomePage() {
   const { userId } = await auth();
 

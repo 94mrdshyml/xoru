@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { Link2, Plus, BarChart3, Settings, ShieldCheck } from 'lucide-react';
 import { MorphButton } from '@/components/ui/MorphButton';
 
+export const runtime = 'edge';
+
 export default async function DashboardPage() {
   const user = await currentUser();
 
