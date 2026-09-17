@@ -315,6 +315,49 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - Live Frontend Dashboard: `https://xoru-frontend.mridu.workers.dev/dashboard`
 - **Session 9 Focus**: Smart Dynamic Routing rules (`smart_routes` table: Device OS, Geo-location, A/B percentage split) and click event analytics logging.
 
+---
+
+## Session 9 — Default Backend API Fallback URL & Onboarding Provisioning Fix
+
+**Date & Time (IST):** 2026-09-17 20:35 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **Backend API Fallback URL Restoration**:
+  - Restored `https://xoru-backend.mridu.workers.dev` as the explicit default fallback for `backendUrl` across all client-side pages and components:
+    - [`apps/frontend/app/onboarding/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/onboarding/page.tsx)
+    - [`apps/frontend/app/dashboard/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/page.tsx)
+    - [`apps/frontend/components/CreateLinkModal.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/CreateLinkModal.tsx)
+    - [`apps/frontend/components/LinksTable.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/LinksTable.tsx)
+    - [`apps/frontend/components/dashboard/WorkspaceSelector.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/dashboard/WorkspaceSelector.tsx)
+  - Configured `NEXT_PUBLIC_BACKEND_URL = "https://xoru-backend.mridu.workers.dev"` in `apps/frontend/wrangler.toml` `[vars]`.
+- **Clerk Sign-In & Sign-Up Client-Side Hydration**:
+  - Added `'use client'` directive to [`(auth)/sign-in/[[...sign-in]]/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/%28auth%29/sign-in/%5B%5B...sign-in%5D%5D/page.tsx) and [`(auth)/sign-up/[[...sign-up]]/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/%28auth%29/sign-up/%5B%5B...sign-up%5D%5D/page.tsx) to prevent Next.js SSR hydration errors on Cloudflare Workers.
+- **CI/CD Pipeline & Live Deployment Verification**:
+  - `npm run typecheck --prefix apps/frontend` passed with **0 TypeScript errors**.
+  - `bun test` in `apps/backend` passed **10/10 Vitest tests green**.
+  - GitHub Actions CI & Deployment Pipeline passed all jobs 100% green.
+  - Live deployment of `xoru-frontend` and `xoru-backend` Workers confirmed live on Cloudflare Workers.
+
+### How We Built It
+- Standardized `backendUrl` evaluation to `process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev'`.
+
+### In Scope
+- Fallback backend URL configuration, wrangler.toml environment variables, Clerk auth pages client directive, full pipeline build and test verification, live deployment check.
+
+### Out of Scope
+- Smart Dynamic Routing (Device, Geo, A/B Testing) scheduled for Session 10.
+
+### Breaking Changes
+- NONE
+
+### Notes for Future Sessions
+- Live Backend Endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/health`
+- Live Frontend Dashboard: `https://xoru-frontend.mridu.workers.dev/dashboard`
+- **Session 10 Focus**: Smart Dynamic Routing rules (`smart_routes` table: Device OS, Geo-location, A/B percentage split) and click event analytics logging.
+
+
 
 
 
