@@ -53,8 +53,8 @@ jobs:
       - name: Frontend Build Verification
         run: bun --cwd apps/frontend run build
         env:
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_cG9ldGljLXByaW1hdGUtMzI4NC5jbGVyay5hY2NvdW50cy5kZXYk' }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY || 'sk_test_mock_secret_key_for_xoru_development_purposes_only' }}
 
   e2e-tests:
     name: 2. Playwright E2E Tests
@@ -96,8 +96,8 @@ jobs:
         run: bun run test:e2e
         working-directory: apps/frontend
         env:
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_cG9ldGljLXByaW1hdGUtMzI4NC5jbGVyay5hY2NvdW50cy5kZXYk' }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY || 'sk_test_mock_secret_key_for_xoru_development_purposes_only' }}
           NEXT_PUBLIC_APP_URL: 'http://localhost:3000'
 
       - name: Upload Playwright Report
@@ -186,8 +186,8 @@ jobs:
           bunx @cloudflare/next-on-pages
         working-directory: apps/frontend
         env:
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_cG9ldGljLXByaW1hdGUtMzI4NC5jbGVyay5hY2NvdW50cy5kZXYk' }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY || 'sk_test_mock_secret_key_for_xoru_development_purposes_only' }}
 
       - name: Deploy Frontend Pages Secrets
         run: |

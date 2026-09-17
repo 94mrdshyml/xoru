@@ -7,7 +7,12 @@ import { MorphButton } from '@/components/ui/MorphButton';
 export const runtime = 'edge';
 
 export default async function DashboardPage() {
-  const user = await currentUser();
+  let user = null;
+  try {
+    user = await currentUser();
+  } catch {
+    // If auth state or key is uninitialized, redirect to sign-in
+  }
 
   if (!user) {
     redirect('/sign-in');
