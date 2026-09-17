@@ -25,7 +25,7 @@ export default function RootLayout({
 }) {
   const publishableKey =
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
-    'pk_test_cG9ldGljLXByaW1hdGUtMzI4NC5jbGVyay5hY2NvdW50cy5kZXYk';
+    'pk_test_c3dlZXBpbmctbW9jY2FzaW4tNzIxNi5jbGVyay5hY2NvdW50cy5kZXYk';
 
   return (
     <ClerkProvider
