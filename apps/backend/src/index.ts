@@ -13,6 +13,15 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>()
 
+// Global Error Handler
+app.onError((err, c) => {
+  console.error('Global Worker Error:', err)
+  return c.json(
+    { error: { code: 'INTERNAL_SERVER_ERROR', message: err.message || String(err), stack: err.stack } },
+    500
+  )
+})
+
 // Enable CORS
 app.use('*', cors({
   origin: '*',

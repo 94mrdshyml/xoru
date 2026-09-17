@@ -97,6 +97,7 @@ linksApp.post('/', async (c) => {
         `
       })
     } catch (err: any) {
+      console.error('POST /api/v1/links Error:', err)
       if (err.message === 'CUSTOM_SLUG_EXISTS') {
         return c.json(
           { error: { code: 'SLUG_TAKEN', message: `Custom slug '${customSlug}' is already in use.` } },
@@ -104,7 +105,7 @@ linksApp.post('/', async (c) => {
         )
       }
       return c.json(
-        { error: { code: 'DB_ERROR', message: err.message || 'Database error occurred.' } },
+        { error: { code: 'DB_ERROR', message: err.message || String(err), stack: err.stack } },
         500
       )
     }
