@@ -62,20 +62,17 @@ linksApp.post('/', async (c) => {
   if (dbUrl) {
     try {
       await withTenantDb(dbUrl, orgId, async (sql) => {
-        // 1. Provision Org & Workspace if missing to satisfy Foreign Key constraints
-        const orgSlug = `org-${orgId.slice(-12).replace(/[^a-z0-9]/gi, '').toLowerCase()}`
-        const wrkSlug = `wrk-${body.workspace_id.slice(-12).replace(/[^a-z0-9]/gi, '').toLowerCase()}`
-
+        // 1. Provision Org & Workspace atomically with slug = id to prevent unique constraint collisions
         await sql`
           INSERT INTO organizations (id, name, slug)
-          VALUES (${orgId}, ${'Organization ' + orgId}, ${orgSlug})
-          ON CONFLICT (id) DO NOTHING
+          VALUES (${orgId}, ${'Organization ' + orgId}, ${orgId})
+          ON CONFLICT (id) DO UPDATE SET updated_at = NOW()
         `
 
         await sql`
           INSERT INTO workspaces (id, org_id, name, slug)
-          VALUES (${body.workspace_id}, ${orgId}, ${'Default Workspace'}, ${wrkSlug})
-          ON CONFLICT (id) DO NOTHING
+          VALUES (${body.workspace_id}, ${orgId}, ${'Default Workspace'}, ${body.workspace_id})
+          ON CONFLICT (id) DO UPDATE SET updated_at = NOW()
         `
 
         // 2. Check custom slug collision if provided
@@ -88,7 +85,7 @@ linksApp.post('/', async (c) => {
           }
         }
 
-        // 3. Insert Link
+        // 3. Insert Short Link
         await sql`
           INSERT INTO links (
             id, org_id, workspace_id, title, destination_url,
