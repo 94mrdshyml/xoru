@@ -10,22 +10,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50/60 font-sans text-slate-900 antialiased">
-      {/* SaaS Sidebar Navigation */}
+    <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 antialiased">
+      {/* Light Theme SaaS Sidebar */}
       <Sidebar
         onOpenCreateModal={() => setIsCreateModalOpen(true)}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
 
-      {/* Main Content Viewport */}
-      <div className="flex flex-col lg:pl-64 min-h-screen">
+      {/* Main Content Area */}
+      <div className="flex flex-col lg:pl-60 min-h-screen">
         <Header
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
           onOpenCreateModal={() => setIsCreateModalOpen(true)}
         />
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6">
           {children}
         </main>
       </div>
@@ -35,7 +35,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onLinkCreated={() => {
-          // Trigger refresh if needed
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new Event('linkCreated'));
           }
@@ -45,4 +44,3 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
-
