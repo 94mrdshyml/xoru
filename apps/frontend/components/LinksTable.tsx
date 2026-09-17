@@ -1,17 +1,22 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { ExternalLink, Copy, Code as QrCode, Trash2, Check, BarChart2, Calendar, Search, Filter } from '@deemlol/next-icons';
+import { ExternalLink, Copy, Code as QrCode, Trash2, Check, BarChart2, Calendar, Search, Filter, Lock, Clock, Zap } from '@deemlol/next-icons';
 import { useAuth } from '@clerk/nextjs';
 import { QrCodeModal } from './QrCodeModal';
 
 export interface ShortLink {
   id: string;
   title: string;
+  description?: string | null;
   destination_url: string;
   short_code: string;
   custom_slug?: string | null;
   redirect_type: number;
+  is_protected?: boolean;
+  is_one_time?: boolean;
+  is_consumed?: boolean;
+  expires_at?: string | null;
   click_count?: number;
   created_at: string;
 }
@@ -155,8 +160,37 @@ export function LinksTable({ links, onRefresh, isLoading }: LinksTableProps) {
                     <tr key={link.id} className="hover:bg-slate-50/60 transition-colors">
                       {/* Title & Short Link */}
                       <td className="px-6 py-4">
-                        <div className="font-semibold text-slate-900">{link.title}</div>
-                        <div className="flex items-center gap-1.5 mt-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-900">{link.title}</span>
+                          {link.is_protected && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/80" title="Password Protected">
+                              <Lock className="w-2.5 h-2.5 stroke-[2.5]" />
+                              <span>Protected</span>
+                            </span>
+                          )}
+                          {link.is_one_time && (
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                              link.is_consumed 
+                                ? 'text-slate-500 bg-slate-100 border-slate-200'
+                                : 'text-rose-700 bg-rose-50 border-rose-200/80'
+                            }`} title={link.is_consumed ? 'One-time link already consumed' : 'One-time link (burn after click)'}>
+                              <Zap className="w-2.5 h-2.5 stroke-[2.5]" />
+                              <span>{link.is_consumed ? 'Burned' : 'One-Time'}</span>
+                            </span>
+                          )}
+                          {link.expires_at && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title={`Expires: ${new Date(link.expires_at).toLocaleString()}`}>
+                              <Clock className="w-2.5 h-2.5 stroke-[2]" />
+                              <span>{new Date(link.expires_at) < new Date() ? 'Expired' : 'Scheduled'}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {link.description && (
+                          <p className="text-xs text-slate-500 mt-0.5 truncate max-w-xs">{link.description}</p>
+                        )}
+
+                        <div className="flex items-center gap-1.5 mt-1.5">
                           <span className="font-mono text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
                             {displaySlug}
                           </span>

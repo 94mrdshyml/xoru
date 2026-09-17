@@ -27,7 +27,7 @@ You are a **Senior Full-Stack Software Engineer with 15+ years of experience** w
    - Every feature or bugfix MUST be tested against live/simulated runtime endpoints and authentication flows to guarantee zero runtime column errors, missing parameters, or broken API payloads.
 3. **Surgical Changes & Zero Hidden Regressions**:
    - Every code edit must be surgical.
-   - All test suites (`npm run typecheck --prefix apps/frontend`, `bun test` in `apps/backend`, Playwright E2E, and GitHub Actions CI/CD) MUST pass green before completing a session.
+   - All test suites (`bun --filter xoru-frontend typecheck`, `bun test` in `apps/backend`, Playwright E2E, and GitHub Actions CI/CD) MUST pass green before completing a session.
 
 ---
 

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { CustomModal } from './ui/CustomModal';
 import { MorphButton } from './ui/MorphButton';
-import { Link2, Sparkles, AlertCircle } from '@deemlol/next-icons';
+import { Link2, Sparkles, AlertCircle, Lock, Calendar, Clock, Zap } from '@deemlol/next-icons';
 
 interface CreateLinkModalProps {
   isOpen: boolean;
@@ -19,18 +19,28 @@ export function CreateLinkModal({
   onLinkCreated,
   workspaceId,
 }: CreateLinkModalProps) {
-  const { getToken, userId } = useAuth();
+  const { getToken } = useAuth();
   const [destinationUrl, setDestinationUrl] = useState('');
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [customSlug, setCustomSlug] = useState('');
   const [redirectType, setRedirectType] = useState<number>(302);
+  const [password, setPassword] = useState('');
+  const [isOneTime, setIsOneTime] = useState(false);
+  const [expiresAt, setExpiresAt] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const resetForm = () => {
     setDestinationUrl('');
     setTitle('');
+    setDescription('');
     setCustomSlug('');
     setRedirectType(302);
+    setPassword('');
+    setIsOneTime(false);
+    setExpiresAt('');
+    setShowAdvanced(false);
     setErrorMsg(null);
   };
 
@@ -61,16 +71,31 @@ export function CreateLinkModal({
       const activeWorkspaceId =
         workspaceId && workspaceId.startsWith('wrk_') ? workspaceId : undefined;
 
+      const payload: Record<string, any> = {
+        workspace_id: activeWorkspaceId,
+        title: title.trim(),
+        destination_url: destinationUrl.trim(),
+        custom_slug: customSlug.trim() || undefined,
+        redirect_type: redirectType,
+      };
+
+      if (description.trim()) {
+        payload.description = description.trim();
+      }
+      if (password.trim()) {
+        payload.password = password.trim();
+      }
+      if (isOneTime) {
+        payload.is_one_time = true;
+      }
+      if (expiresAt) {
+        payload.expires_at = new Date(expiresAt).toISOString();
+      }
+
       const res = await fetch(`${backendUrl}/api/v1/links`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          workspace_id: activeWorkspaceId,
-          title: title.trim(),
-          destination_url: destinationUrl.trim(),
-          custom_slug: customSlug.trim() || undefined,
-          redirect_type: redirectType,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -96,10 +121,10 @@ export function CreateLinkModal({
     <CustomModal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Create Short Link"
-      description="Transform any destination URL into an intelligent short link."
+      title="Create Intelligent Short Link"
+      description="Create a high-performance short link with custom routing, password security, or one-time burn."
     >
-      <form onSubmit={(e) => e.preventDefault()} className="space-y-4 pt-1">
+      <form onSubmit={(e) => e.preventDefault()} className="space-y-4 pt-1 max-h-[75vh] overflow-y-auto px-0.5">
         {errorMsg && (
           <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700 animate-in fade-in-0 duration-200">
             <AlertCircle className="w-4 h-4 shrink-0 stroke-[2]" />
@@ -173,8 +198,93 @@ export function CreateLinkModal({
           </div>
         </div>
 
+        {/* Link Description (Internal Context) */}
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Description <span className="text-slate-400 font-normal lowercase">(optional notes)</span>
+          </label>
+          <textarea
+            rows={2}
+            placeholder="Add context, target audience, or campaign details..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-colors resize-none"
+          />
+        </div>
+
+        {/* Advanced Security & Expiration Toggle */}
+        <div className="pt-1">
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+          >
+            <span>{showAdvanced ? '− Hide Privacy & Expiration Settings' : '+ Password Protection & Expiry Settings'}</span>
+          </button>
+        </div>
+
+        {showAdvanced && (
+          <div className="rounded-xl border border-slate-200/90 bg-slate-50/50 p-4 space-y-4 animate-in fade-in-0 duration-200">
+            {/* Password Protection */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Password Protection <span className="text-slate-400 font-normal lowercase">(optional)</span>
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 stroke-[2]" />
+                <input
+                  type="password"
+                  placeholder="Set access password..."
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-4 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-colors"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Visitors must enter this password before being redirected.</p>
+            </div>
+
+            {/* Expiration Date & Time */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Link Expiration <span className="text-slate-400 font-normal lowercase">(optional cutoff)</span>
+              </label>
+              <div className="relative">
+                <Clock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 stroke-[2]" />
+                <input
+                  type="datetime-local"
+                  value={expiresAt}
+                  onChange={(e) => setExpiresAt(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-4 text-xs font-medium text-slate-900 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* One-Time Link Toggle */}
+            <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-600 stroke-[2]" />
+                  <span className="text-xs font-bold text-slate-900">One-Time Link (Burn After Click)</span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Automatically deactivates and self-destructs after the first visitor accesses it.
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isOneTime}
+                  onChange={(e) => setIsOneTime(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+          </div>
+        )}
+
         {/* Footer Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+        <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
           <button
             type="button"
             onClick={handleClose}
@@ -191,3 +301,4 @@ export function CreateLinkModal({
     </CustomModal>
   );
 }
+

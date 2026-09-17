@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { tenantMiddleware } from '../middleware/auth'
 import { generateId } from '../utils/id'
 import { generateShortCode } from '../utils/base62'
+import { generateSalt, hashPassword } from '../utils/crypto'
 import { withTenantDb } from '../db/client'
 
 type Bindings = {
@@ -21,9 +22,12 @@ linksApp.post('/', async (c) => {
   const body = await c.req.json<{
     workspace_id?: string
     title: string
+    description?: string
     destination_url: string
     custom_slug?: string
     redirect_type?: number
+    password?: string
+    is_one_time?: boolean
     expires_at?: string
   }>()
 
@@ -51,6 +55,17 @@ linksApp.post('/', async (c) => {
   const shortCode = generateShortCode(7)
   const customSlug = body.custom_slug ? body.custom_slug.trim().toLowerCase() : null
   const redirectType = body.redirect_type === 301 ? 301 : 302
+  const description = body.description ? body.description.trim() : null
+  const isOneTime = Boolean(body.is_one_time)
+  const expiresAt = body.expires_at ? new Date(body.expires_at).toISOString() : null
+
+  // Password Hashing
+  let passwordSalt: string | null = null
+  let passwordHash: string | null = null
+  if (body.password && body.password.trim()) {
+    passwordSalt = generateSalt(16)
+    passwordHash = await hashPassword(body.password.trim(), passwordSalt)
+  }
 
   if (customSlug && !/^[a-z0-9-_]+$/.test(customSlug)) {
     return c.json(
@@ -110,11 +125,13 @@ linksApp.post('/', async (c) => {
         // Insert Short Link
         await sql`
           INSERT INTO links (
-            id, user_id, workspace_id, title, destination_url,
-            short_code, custom_slug, redirect_type, created_by, expires_at
+            id, user_id, workspace_id, title, description, destination_url,
+            short_code, custom_slug, redirect_type, password_hash, password_salt,
+            is_one_time, is_consumed, created_by, expires_at
           ) VALUES (
-            ${linkId}, ${userId}, ${effectiveWorkspaceId}, ${body.title}, ${body.destination_url},
-            ${shortCode}, ${customSlug}, ${redirectType}, ${userId}, ${body.expires_at || null}
+            ${linkId}, ${userId}, ${effectiveWorkspaceId}, ${body.title}, ${description}, ${body.destination_url},
+            ${shortCode}, ${customSlug}, ${redirectType}, ${passwordHash}, ${passwordSalt},
+            ${isOneTime}, FALSE, ${userId}, ${expiresAt}
           )
         `
       })
@@ -137,11 +154,20 @@ linksApp.post('/', async (c) => {
     }
   }
 
-  // Populate Cloudflare KV Edge Cache
+  // Populate Cloudflare KV Edge Cache with structured metadata
   if (c.env?.XORU_KV) {
-    await c.env.XORU_KV.put(`lnk:${shortCode}`, body.destination_url)
+    const kvPayload = JSON.stringify({
+      id: linkId,
+      destination_url: body.destination_url,
+      redirect_type: redirectType,
+      password_hash: passwordHash,
+      password_salt: passwordSalt,
+      is_one_time: isOneTime,
+      expires_at: expiresAt,
+    })
+    await c.env.XORU_KV.put(`lnk:${shortCode}`, kvPayload)
     if (customSlug) {
-      await c.env.XORU_KV.put(`lnk:${customSlug}`, body.destination_url)
+      await c.env.XORU_KV.put(`lnk:${customSlug}`, kvPayload)
     }
   }
 
@@ -150,10 +176,15 @@ linksApp.post('/', async (c) => {
     user_id: userId,
     workspace_id: effectiveWorkspaceId,
     title: body.title,
+    description: description,
     destination_url: body.destination_url,
     short_code: shortCode,
     custom_slug: customSlug,
     redirect_type: redirectType,
+    is_protected: Boolean(passwordHash),
+    is_one_time: isOneTime,
+    is_consumed: false,
+    expires_at: expiresAt,
     created_by: userId,
     click_count: 0,
     created_at: new Date().toISOString(),
@@ -174,25 +205,37 @@ linksApp.get('/', async (c) => {
 
   try {
     const links = await withTenantDb(dbUrl, tenant.user_id, async (sql) => {
+      let queryResult
       if (workspaceId) {
-        return await sql`
-          SELECT l.*, COALESCE(COUNT(c.id), 0)::int as click_count
+        queryResult = await sql`
+          SELECT 
+            l.id, l.user_id, l.workspace_id, l.title, l.description, l.destination_url,
+            l.short_code, l.custom_slug, l.redirect_type, l.is_active, l.is_one_time,
+            l.is_consumed, l.consumed_at, l.expires_at, l.created_by, l.created_at, l.updated_at,
+            (l.password_hash IS NOT NULL) as is_protected,
+            COALESCE(COUNT(c.id), 0)::int as click_count
           FROM links l
           LEFT JOIN click_events c ON c.link_id = l.id
           WHERE l.user_id = ${tenant.user_id} AND l.workspace_id = ${workspaceId}
           GROUP BY l.id
           ORDER BY l.created_at DESC
         `
+      } else {
+        queryResult = await sql`
+          SELECT 
+            l.id, l.user_id, l.workspace_id, l.title, l.description, l.destination_url,
+            l.short_code, l.custom_slug, l.redirect_type, l.is_active, l.is_one_time,
+            l.is_consumed, l.consumed_at, l.expires_at, l.created_by, l.created_at, l.updated_at,
+            (l.password_hash IS NOT NULL) as is_protected,
+            COALESCE(COUNT(c.id), 0)::int as click_count
+          FROM links l
+          LEFT JOIN click_events c ON c.link_id = l.id
+          WHERE l.user_id = ${tenant.user_id}
+          GROUP BY l.id
+          ORDER BY l.created_at DESC
+        `
       }
-
-      return await sql`
-        SELECT l.*, COALESCE(COUNT(c.id), 0)::int as click_count
-        FROM links l
-        LEFT JOIN click_events c ON c.link_id = l.id
-        WHERE l.user_id = ${tenant.user_id}
-        GROUP BY l.id
-        ORDER BY l.created_at DESC
-      `
+      return queryResult
     })
 
     return c.json(links)

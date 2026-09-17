@@ -240,7 +240,112 @@ app.post('/api/v1/admin/reset', async (c) => {
 // Mount Short Link CRUD Router
 app.route('/api/v1/links', linksApp)
 
-// Public Short Link Redirection Endpoint (Sub-10ms Cloudflare KV lookup + DB fallback)
+import { verifyPassword } from './utils/crypto'
+
+function renderPasswordChallengeHtml(code: string, error?: string) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Protected Link — Xoru</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>body { font-family: 'Open Sans', sans-serif; }</style>
+</head>
+<body class="min-h-screen bg-slate-50 flex items-center justify-center p-4 text-slate-900">
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200/80 p-8 space-y-6">
+    <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
+      <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm font-bold">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold text-slate-900">Protected Short Link</h1>
+        <p class="text-xs text-slate-500 font-medium">This short link is encrypted with password protection.</p>
+      </div>
+    </div>
+
+    ${error ? `
+    <div class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700 flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <span>${error}</span>
+    </div>
+    ` : ''}
+
+    <form method="POST" action="/${code}/verify" class="space-y-4">
+      <div>
+        <label for="password" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+          Enter Password
+        </label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          required
+          autofocus
+          placeholder="••••••••••••"
+          class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+        />
+      </div>
+
+      <button
+        type="submit"
+        class="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-700 transition-all shadow-md active:scale-[0.98] flex items-center justify-center gap-2"
+      >
+        <span>Unlock & Continue</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+        </svg>
+      </button>
+    </form>
+
+    <div class="text-center pt-2">
+      <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Secured by Xoru Edge Intelligence</span>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
+function renderLinkExpiredHtml(title: string, message: string) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} — Xoru</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>body { font-family: 'Open Sans', sans-serif; }</style>
+</head>
+<body class="min-h-screen bg-slate-50 flex items-center justify-center p-4 text-slate-900">
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200/80 p-8 text-center space-y-4">
+    <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+    </div>
+    <h1 class="text-xl font-bold text-slate-900">${title}</h1>
+    <p class="text-sm text-slate-500 max-w-xs mx-auto">${message}</p>
+    <div class="pt-4 border-t border-slate-100">
+      <a href="https://xoru-frontend.mridu.workers.dev" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700">
+        Create your own intelligent short links on Xoru &rarr;
+      </a>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
+// Public Short Link Redirection Endpoint (Sub-10ms Cloudflare KV lookup + DB fallback + Password/One-time protection)
 app.get('/:code_or_slug', async (c) => {
   const code = c.req.param('code_or_slug')
 
@@ -250,31 +355,105 @@ app.get('/:code_or_slug', async (c) => {
 
   // 1. Try Cloudflare KV lookup
   if (c.env?.XORU_KV) {
-    const targetUrl = await c.env.XORU_KV.get(`lnk:${code}`)
-    if (targetUrl) {
-      return c.redirect(targetUrl, 302)
+    const rawKv = await c.env.XORU_KV.get(`lnk:${code}`)
+    if (rawKv) {
+      if (rawKv.startsWith('{')) {
+        try {
+          const meta = JSON.parse(rawKv)
+          // Expiration check
+          if (meta.expires_at && new Date(meta.expires_at) < new Date()) {
+            await c.env.XORU_KV.delete(`lnk:${code}`)
+            return c.html(renderLinkExpiredHtml('Short Link Expired', 'This short link has reached its scheduled expiration date and is no longer active.'), 410)
+          }
+
+          // Password check
+          if (meta.password_hash) {
+            return c.html(renderPasswordChallengeHtml(code))
+          }
+
+          // If not one-time, instant redirect
+          if (!meta.is_one_time) {
+            return c.redirect(meta.destination_url, meta.redirect_type === 301 ? 301 : 302)
+          }
+        } catch {
+          // Fallback to plain redirect or DB query
+        }
+      } else {
+        // Legacy plain URL string in KV
+        return c.redirect(rawKv, 302)
+      }
     }
   }
 
-  // 2. Cache Miss: Fallback to Neon DB query
+  // 2. Fallback to Neon DB query
   const dbUrl = c.env?.NEON_DATABASE_URL
   if (dbUrl) {
     try {
       const { neon } = await import('@neondatabase/serverless')
       const sql = neon(dbUrl)
       const rows = await sql`
-        SELECT destination_url, redirect_type FROM links
-        WHERE (short_code = ${code} OR custom_slug = ${code}) AND is_active = TRUE
+        SELECT 
+          id, destination_url, redirect_type, password_hash, password_salt,
+          is_one_time, is_consumed, expires_at, is_active
+        FROM links
+        WHERE (short_code = ${code} OR custom_slug = ${code})
         LIMIT 1
       `
       if (rows.length > 0) {
         const link = rows[0]
-        const redirectStatus = link.redirect_type === 301 ? 301 : 302
 
-        // Async hydrate Cloudflare KV
+        // Check if link is inactive or already consumed
+        if (!link.is_active || link.is_consumed) {
+          if (link.is_one_time) {
+            return c.html(renderLinkExpiredHtml('One-Time Link Consumed', 'This one-time link has already been opened and permanently destroyed.'), 410)
+          }
+          return c.html(renderLinkExpiredHtml('Link Inactive', 'This short link is currently disabled.'), 410)
+        }
+
+        // Check expiration
+        if (link.expires_at && new Date(link.expires_at) < new Date()) {
+          return c.html(renderLinkExpiredHtml('Short Link Expired', 'This short link has reached its scheduled expiration date and is no longer active.'), 410)
+        }
+
+        // Check password challenge
+        if (link.password_hash) {
+          return c.html(renderPasswordChallengeHtml(code))
+        }
+
+        // Handle one-time consumption atomically
+        if (link.is_one_time) {
+          const consumeResult = await sql`
+            UPDATE links
+            SET is_active = FALSE, is_consumed = TRUE, consumed_at = NOW()
+            WHERE id = ${link.id} AND is_active = TRUE AND is_consumed = FALSE
+            RETURNING destination_url
+          `
+          if (!consumeResult || consumeResult.length === 0) {
+            return c.html(renderLinkExpiredHtml('One-Time Link Consumed', 'This one-time link has already been opened and permanently destroyed.'), 410)
+          }
+
+          if (c.env?.XORU_KV) {
+            await c.env.XORU_KV.delete(`lnk:${code}`)
+          }
+          return c.redirect(link.destination_url, 302)
+        }
+
+        // Standard link: Hydrate KV and redirect
+        const redirectStatus = link.redirect_type === 301 ? 301 : 302
         if (c.env?.XORU_KV && c.executionCtx?.waitUntil) {
           c.executionCtx.waitUntil(
-            c.env.XORU_KV.put(`lnk:${code}`, link.destination_url)
+            c.env.XORU_KV.put(
+              `lnk:${code}`,
+              JSON.stringify({
+                id: link.id,
+                destination_url: link.destination_url,
+                redirect_type: redirectStatus,
+                password_hash: link.password_hash,
+                password_salt: link.password_salt,
+                is_one_time: link.is_one_time,
+                expires_at: link.expires_at,
+              })
+            )
           )
         }
 
@@ -289,6 +468,98 @@ app.get('/:code_or_slug', async (c) => {
     { error: { code: 'LINK_NOT_FOUND', message: `Short link '${code}' not found.` } },
     404
   )
+})
+
+// Password Verification Endpoint for Protected Links
+app.post('/:code_or_slug/verify', async (c) => {
+  const code = c.req.param('code_or_slug')
+  const contentType = c.req.header('content-type') || ''
+  let password = ''
+
+  if (contentType.includes('application/json')) {
+    const body = await c.req.json<{ password?: string }>().catch(() => ({} as any))
+    password = body.password || ''
+  } else {
+    const formData = await c.req.parseBody().catch(() => ({} as any))
+    password = String(formData.password || '')
+  }
+
+  if (!password) {
+    if (contentType.includes('application/json')) {
+      return c.json({ error: { code: 'INVALID_PASSWORD', message: 'Password is required.' } }, 400)
+    }
+    return c.html(renderPasswordChallengeHtml(code, 'Please enter a password.'), 400)
+  }
+
+  const dbUrl = c.env?.NEON_DATABASE_URL
+  if (!dbUrl) {
+    return c.json({ error: { code: 'DB_UNAVAILABLE', message: 'Database connection unavailable.' } }, 500)
+  }
+
+  try {
+    const { neon } = await import('@neondatabase/serverless')
+    const sql = neon(dbUrl)
+    const rows = await sql`
+      SELECT 
+        id, destination_url, redirect_type, password_hash, password_salt,
+        is_one_time, is_consumed, expires_at, is_active
+      FROM links
+      WHERE (short_code = ${code} OR custom_slug = ${code})
+      LIMIT 1
+    `
+
+    if (rows.length === 0) {
+      return c.json({ error: { code: 'LINK_NOT_FOUND', message: `Short link '${code}' not found.` } }, 404)
+    }
+
+    const link = rows[0]
+
+    // Check active / consumed status
+    if (!link.is_active || link.is_consumed) {
+      return c.html(renderLinkExpiredHtml('Link Inactive', 'This short link is no longer available.'), 410)
+    }
+
+    // Check expiry
+    if (link.expires_at && new Date(link.expires_at) < new Date()) {
+      return c.html(renderLinkExpiredHtml('Short Link Expired', 'This short link has reached its expiration date.'), 410)
+    }
+
+    // Verify Password
+    if (link.password_hash && link.password_salt) {
+      const isValid = await verifyPassword(password, link.password_salt, link.password_hash)
+      if (!isValid) {
+        if (contentType.includes('application/json')) {
+          return c.json({ error: { code: 'INVALID_PASSWORD', message: 'Incorrect password.' } }, 401)
+        }
+        return c.html(renderPasswordChallengeHtml(code, 'Incorrect password. Please try again.'), 401)
+      }
+    }
+
+    // Handle One-Time Consumption
+    if (link.is_one_time) {
+      const consumeResult = await sql`
+        UPDATE links
+        SET is_active = FALSE, is_consumed = TRUE, consumed_at = NOW()
+        WHERE id = ${link.id} AND is_active = TRUE AND is_consumed = FALSE
+        RETURNING destination_url
+      `
+      if (!consumeResult || consumeResult.length === 0) {
+        return c.html(renderLinkExpiredHtml('One-Time Link Consumed', 'This one-time link has already been opened and permanently destroyed.'), 410)
+      }
+
+      if (c.env?.XORU_KV) {
+        await c.env.XORU_KV.delete(`lnk:${code}`)
+      }
+    }
+
+    if (contentType.includes('application/json')) {
+      return c.json({ success: true, destination_url: link.destination_url })
+    }
+
+    return c.redirect(link.destination_url, 302)
+  } catch (err: any) {
+    return c.json({ error: { code: 'INTERNAL_ERROR', message: err.message || String(err) } }, 500)
+  }
 })
 
 export type AppType = typeof app

@@ -432,6 +432,51 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - Live Frontend Dashboard: `https://xoru-frontend.mridu.workers.dev/dashboard`
 - **Session 12 Focus**: Smart Dynamic Routing rules (`smart_routes` table: Device OS, Geo-location, A/B percentage split) and click event analytics logging.
 
+---
+
+## Session 12 — Password Protection, One-Time Burn, Expiry & Description Expansion
+
+**Date & Time (IST):** 2026-09-17 22:10 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **Password-Protected Short Links**:
+  - Edge WebCrypto salt generator and SHA-256 hashing in [`apps/backend/src/utils/crypto.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/utils/crypto.ts).
+  - High-end branded Password Challenge edge page and `POST /:code_or_slug/verify` route in [`apps/backend/src/index.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/index.ts).
+  - Password inputs and `Protected` status badges across [`CreateLinkModal.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/CreateLinkModal.tsx) and [`LinksTable.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/LinksTable.tsx).
+- **One-Time Links (Burn After Click)**:
+  - Atomic Neon DB consumption (`UPDATE links SET is_active = FALSE, is_consumed = TRUE WHERE id = ... AND is_active = TRUE AND is_consumed = FALSE RETURNING destination_url`).
+  - Automatic Cloudflare KV purge upon access.
+  - Branded 410 "One-Time Link Consumed / Burned" page on repeat attempts.
+  - `One-Time` / `Burned` badges in frontend table.
+- **Link Expiration (`expires_at`) & Internal Description (`description`)**:
+  - Expiration timestamp support in Neon DB and KV with 410 Expired edge page on cutoff.
+  - Datetime-local picker and Description textarea in expanded creation modal.
+  - Expiration and description previews in dashboard links table.
+- **Live Database Migration**:
+  - Executed idempotent migration adding `description`, `password_hash`, `password_salt`, `is_one_time`, `is_consumed`, `consumed_at`, and `expires_at` to Neon Postgres DB.
+- **Tests**:
+  - Vitest suite in [`apps/backend/tests/links.test.ts`](file:///c:/vibe%20coding/xoru/apps/backend/tests/links.test.ts) updated with 13/13 passing tests.
+  - TypeScript typecheck passed with 0 errors.
+
+### How We Built It
+- WebCrypto native hashing for edge compatibility, atomic SQL transactions for race-condition-free one-time consumption, and expandable UI controls in Next.js modal.
+
+### In Scope
+- Password hashing, password challenge edge page, one-time burn logic, link expiration cutoff, link descriptions, live Neon DB schema migration, expanded modal UI, and Vitest test suite.
+
+### Out of Scope
+- Smart Dynamic Routing (Device OS, Geo ISO, A/B Split) scheduled for Session 13.
+
+### Breaking Changes
+- NONE
+
+### Notes for Future Sessions
+- Live Backend Endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/health`
+- Live Frontend Dashboard: `https://xoru-frontend.mridu.workers.dev/dashboard`
+- **Session 13 Focus**: Smart Dynamic Routing rules (`smart_routes` table: Device OS, Geo-location, A/B percentage split) and click event analytics logging.
+
 
 
 

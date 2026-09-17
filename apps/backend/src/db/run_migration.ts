@@ -28,17 +28,23 @@ async function migrate() {
   `
   await sql`CREATE INDEX idx_workspaces_user_id ON workspaces(user_id);`
 
-  console.log('3. Creating links table with user_id...')
+  console.log('3. Creating links table with user_id and security fields...')
   await sql`
     CREATE TABLE links (
       id VARCHAR(64) PRIMARY KEY,
       user_id VARCHAR(64) NOT NULL,
       workspace_id VARCHAR(64) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
       title VARCHAR(255) NOT NULL,
+      description TEXT,
       destination_url TEXT NOT NULL,
       short_code VARCHAR(32) UNIQUE NOT NULL,
       custom_slug VARCHAR(128) UNIQUE,
       redirect_type INT NOT NULL DEFAULT 301,
+      password_hash VARCHAR(255),
+      password_salt VARCHAR(64),
+      is_one_time BOOLEAN NOT NULL DEFAULT FALSE,
+      is_consumed BOOLEAN NOT NULL DEFAULT FALSE,
+      consumed_at TIMESTAMPTZ,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
       expires_at TIMESTAMPTZ,
       created_by VARCHAR(64) NOT NULL,
@@ -49,6 +55,7 @@ async function migrate() {
   await sql`CREATE INDEX idx_links_user_id ON links(user_id);`
   await sql`CREATE INDEX idx_links_workspace_id ON links(workspace_id);`
   await sql`CREATE INDEX idx_links_short_code ON links(short_code);`
+  await sql`CREATE INDEX idx_links_expires_at ON links(expires_at) WHERE expires_at IS NOT NULL;`
 
   console.log('4. Creating smart_routes table with user_id...')
   await sql`

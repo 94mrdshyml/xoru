@@ -26,10 +26,16 @@ CREATE TABLE IF NOT EXISTS links (
     user_id VARCHAR(64) NOT NULL, -- usr_xxx (Clerk User ID)
     workspace_id VARCHAR(64) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
+    description TEXT,
     destination_url TEXT NOT NULL,
     short_code VARCHAR(32) UNIQUE NOT NULL, -- e.g. 'a9x2k'
     custom_slug VARCHAR(128) UNIQUE,        -- e.g. 'launch-event'
     redirect_type INT NOT NULL DEFAULT 301,  -- 301 (Permanent) or 302 (Temporary)
+    password_hash VARCHAR(255),
+    password_salt VARCHAR(64),
+    is_one_time BOOLEAN NOT NULL DEFAULT FALSE,
+    is_consumed BOOLEAN NOT NULL DEFAULT FALSE,
+    consumed_at TIMESTAMPTZ,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     expires_at TIMESTAMPTZ,
     created_by VARCHAR(64) NOT NULL,        -- usr_xxx
@@ -41,6 +47,7 @@ CREATE INDEX IF NOT EXISTS idx_links_user_id ON links(user_id);
 CREATE INDEX IF NOT EXISTS idx_links_workspace_id ON links(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_links_short_code ON links(short_code);
 CREATE INDEX IF NOT EXISTS idx_links_custom_slug ON links(custom_slug) WHERE custom_slug IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_links_expires_at ON links(expires_at) WHERE expires_at IS NOT NULL;
 
 -- 3. Smart Dynamic Routes Table
 CREATE TABLE IF NOT EXISTS smart_routes (
