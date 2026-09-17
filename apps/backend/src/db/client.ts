@@ -1,8 +1,9 @@
 import { neon, NeonQueryFunction } from '@neondatabase/serverless'
 
 /**
- * Executes database operations within a Neon transaction block
- * setting SET LOCAL app.current_tenant_id = '<tenant_id>' for RLS safety.
+ * Executes database operations within a Neon atomic transaction block,
+ * sending `SELECT set_config('app.current_tenant_id', tenantId, true)` and target queries
+ * in a single atomic HTTP request payload for 100% RLS safety.
  */
 export async function withTenantDb<T>(
   databaseUrl: string,
@@ -15,8 +16,14 @@ export async function withTenantDb<T>(
 
   const sql = neon(databaseUrl)
 
-  // Set local RLS tenant variable using set_config to support query parameters ($1)
-  await sql`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`
-  return callback(sql)
-}
+  // Wrap query in sql.transaction so set_config and query are sent in 1 single HTTP request
+  const tenantSql = (async (strings: TemplateStringsArray, ...values: any[]) => {
+    const results = await sql.transaction((txn) => [
+      txn`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`,
+      txn(strings, ...values),
+    ])
+    return results[1]
+  }) as unknown as NeonQueryFunction<false, false>
 
+  return callback(tenantSql)
+}
