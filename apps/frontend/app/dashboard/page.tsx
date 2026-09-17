@@ -3,16 +3,14 @@
 import { useUser, useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
-import { Link2, Plus, BarChart2, Layers } from 'lucide-react';
+import { Link2, BarChart2, Layers } from 'lucide-react';
 import { LinksTable, ShortLink } from '@/components/LinksTable';
-import { CreateLinkModal } from '@/components/CreateLinkModal';
 
 export default function DashboardPage() {
   const { isLoaded: isUserLoaded, isSignedIn, user } = useUser();
-  const { getToken, orgId, userId, isLoaded: isAuthLoaded } = useAuth();
+  const { getToken, isLoaded: isAuthLoaded } = useAuth();
   const router = useRouter();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [links, setLinks] = useState<ShortLink[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -66,7 +64,6 @@ export default function DashboardPage() {
 
   const firstName = user.firstName || 'User';
   const lastName = user.lastName || '';
-  const activeWorkspaceId = orgId || userId || `wrk_${user.id}`;
   const workspaceName = `${firstName}'s Workspace`;
 
   const totalClicks = links.reduce((sum, link) => sum + (link.click_count || 0), 0);
@@ -74,23 +71,13 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Top Overview Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
-            Welcome back, {firstName} {lastName}
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Overview and link performance for <strong className="text-slate-700 font-semibold">{workspaceName}</strong>
-          </p>
-        </div>
-
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 active:scale-[0.98] transition-all duration-150 self-start sm:self-center"
-        >
-          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-          <span>New Short Link</span>
-        </button>
+      <div className="border-b border-slate-200/80 pb-4">
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">
+          Welcome back, {firstName} {lastName}
+        </h1>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Overview and link performance for <strong className="text-slate-700 font-semibold">{workspaceName}</strong>
+        </p>
       </div>
 
       {/* Metrics Overview Grid */}
@@ -155,14 +142,6 @@ export default function DashboardPage() {
 
         <LinksTable links={links} onRefresh={fetchLinks} isLoading={isLoading} />
       </div>
-
-      {/* Create Short Link Modal */}
-      <CreateLinkModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onLinkCreated={fetchLinks}
-        workspaceId={activeWorkspaceId}
-      />
     </div>
   );
 }

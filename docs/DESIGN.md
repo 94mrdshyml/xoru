@@ -144,3 +144,20 @@ Before shipping any UI component or page:
 - [ ] All interactive buttons include `active:scale-[0.98]` tactile click response.
 - [ ] Responsive design verified on both Desktop (1440px) and Mobile (375px).
 
+---
+
+## 7. Single Primary CTA Governance & Auth Component Integration
+
+### A. Single Primary CTA Governance Rule
+- **Strict Prohibition Against Duplication**: Never render duplicate primary action buttons (e.g. multiple "+ Create Link" / "+ New Short Link" buttons) within the same viewport.
+- **Header Placement**: The primary action button lives globally in the dashboard header top-right section (`Header.tsx`). Secondary sections (sidebar, welcome banners) must omit duplicate CTA buttons to avoid visual clutter.
+
+### B. Clerk Auth Component Customization
+- **Theme Variables**: Clerk components (`<ClerkProvider />`, `<OrganizationSwitcher />`, `<UserButton />`) must inherit Xoru design tokens:
+  - `colorPrimary`: `#4F46E5` (Indigo-600)
+  - `fontFamily`: `var(--font-open-sans), sans-serif`
+  - `borderRadius`: `0.75rem` (12px / `rounded-xl`)
+- **Third-Party Watermark Removal**: Default vendor footers (`userButtonPopoverFooter`, `organizationSwitcherPopoverFooter`, `footer`) are explicitly hidden (`hidden`) to maintain a clean, custom SaaS feel.
+- **Trigger Surface**: Organization switcher and user profile triggers use white cards with subtle slate borders (`border border-slate-200/90 shadow-sm bg-white hover:bg-slate-50`).
+
+
