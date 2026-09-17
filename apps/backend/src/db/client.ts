@@ -15,8 +15,8 @@ export async function withTenantDb<T>(
 
   const sql = neon(databaseUrl)
 
-  // Set local RLS tenant variable before executing queries
-  await sql`SET LOCAL app.current_tenant_id = ${tenantId}`
+  // Set local RLS tenant variable using set_config to support query parameters ($1)
+  await sql`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`
   return callback(sql)
 }
 
