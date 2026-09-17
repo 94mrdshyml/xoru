@@ -191,7 +191,7 @@ jobs:
 
       - name: Deploy Frontend Pages Secrets
         run: |
-          echo "${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}" | bunx wrangler pages secret put NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY --project-name xoru-frontend
+          bunx wrangler pages secret delete NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY --project-name xoru-frontend || true
           echo "${{ secrets.CLERK_SECRET_KEY }}" | bunx wrangler pages secret put CLERK_SECRET_KEY --project-name xoru-frontend
           echo "${{ secrets.NEON_DATABASE_URL }}" | bunx wrangler pages secret put NEON_DATABASE_URL --project-name xoru-frontend
         working-directory: apps/frontend
