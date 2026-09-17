@@ -272,7 +272,49 @@ This log tracks feature additions, technical decisions, architectural changes, a
 ### Notes for Future Sessions
 - Live Backend Endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/health`
 - Live Frontend Dashboard: `https://xoru-frontend.mridu.workers.dev/dashboard`
-- **Session 8 Focus**: Smart Dynamic Routing rules (`smart_routes` table: Device OS, Geo-location, A/B percentage split) and click event analytics logging.
+
+---
+
+## Session 8 — Architecture Simplification: User & Workspace Multi-Tenancy
+
+**Date & Time (IST):** 2026-09-17 19:42 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **Complete Organization Purge & Architecture Simplification**:
+  - Removed the `organizations` entity and dropped the `organizations` table from Neon DB schema.
+  - Simplified Xoru's domain hierarchy to **User -> N Workspaces -> Links / Smart Routes / Pixels / Click Events**.
+  - Updated all database tables (`workspaces`, `links`, `smart_routes`, `retargeting_pixels`, `click_events`) to reference `user_id` instead of `org_id`.
+- **User-Level Neon DB RLS Policies & Auth Middleware ([packages/db/schema.sql](file:///c:/vibe%20coding/xoru/packages/db/schema.sql), [apps/backend/src/middleware/auth.ts](file:///c:/vibe%20coding/xoru/apps/backend/src/middleware/auth.ts))**:
+  - Multi-tenancy isolation operates strictly at the `user_id` level (`SET LOCAL app.current_tenant_id = '<clerk_user_id>'`).
+  - Updated RLS policies: `CREATE POLICY tenant_isolation_<table_name> ON <table_name> FOR ALL USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));`.
+- **Automatic User Workspace Provisioning ([apps/backend/src/index.ts](file:///c:/vibe%20coding/xoru/apps/backend/src/index.ts), [apps/frontend/app/onboarding/page.tsx](file:///c:/vibe%20coding/xoru/apps/frontend/app/onboarding/page.tsx))**:
+  - Upon user sign-up, Xoru automatically provisions a default workspace named **`<First Name>'s Workspace`** (or `User's Workspace` if first name is missing).
+  - If a user accesses `GET /api/v1/workspaces` with 0 existing workspaces, the backend automatically provisions their default workspace.
+- **Clean Workspace Selector UI Component ([WorkspaceSelector.tsx](file:///c:/vibe%20coding/xoru/apps/frontend/components/dashboard/WorkspaceSelector.tsx))**:
+  - Replaced legacy `OrgWorkspaceSelector.tsx` with a clean, single-purpose `WorkspaceSelector.tsx` rendering user workspaces and an inline "+ New Workspace" creation form.
+  - Purged all Clerk Organization switcher imports and UI elements.
+- **Clerk Environment Variables**: Updated Clerk publishable key (`pk_test_...`) and secret key (`sk_test_...`) in `.env`.
+
+### How We Built It
+- Scoped DB sessions, API queries, and client-side hooks to `userId`.
+- Updated backend unit tests (`health.test.ts`, `links.test.ts`) and Playwright E2E tests (`links.spec.ts`).
+
+### In Scope
+- Removal of Organizations entity, User-level RLS policies, User -> Workspace hierarchy, default `<First Name>'s Workspace` auto-provisioning, new `WorkspaceSelector.tsx` component, `.env` Clerk key update, unit & E2E verification.
+
+### Out of Scope
+- Smart Dynamic Routing (Device, Geo, A/B Testing) scheduled for Session 9.
+
+### Breaking Changes
+- `organizations` table dropped. `org_id` column removed from all tables in favor of `user_id`.
+
+### Notes for Future Sessions
+- Live Backend Endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/health`
+- Live Frontend Dashboard: `https://xoru-frontend.mridu.workers.dev/dashboard`
+- **Session 9 Focus**: Smart Dynamic Routing rules (`smart_routes` table: Device OS, Geo-location, A/B percentage split) and click event analytics logging.
+
 
 
 

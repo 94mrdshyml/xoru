@@ -34,16 +34,15 @@ describe('Backend API Routes', () => {
   it('GET /api/v1/auth/me accepts X-Tenant-Id header in development mode', async () => {
     const res = await app.request('/api/v1/auth/me', {
       headers: {
-        'X-Tenant-Id': 'org_test_123456789012345678901234',
+        'X-Tenant-Id': 'usr_test_123456789012345678901234',
       },
     })
     expect(res.status).toBe(200)
 
     const data = await res.json()
     expect(data).toMatchObject({
-      tenant_id: 'org_test_123456789012345678901234',
-      user_id: 'usr_dev_admin',
-      org_role: 'admin',
+      tenant_id: 'usr_test_123456789012345678901234',
+      user_id: 'usr_test_123456789012345678901234',
     })
   })
 
@@ -55,4 +54,3 @@ describe('Backend API Routes', () => {
     expect(data.error.code).toBe('LINK_NOT_FOUND')
   })
 })
-

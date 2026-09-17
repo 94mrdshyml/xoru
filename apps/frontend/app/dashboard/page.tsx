@@ -16,7 +16,7 @@ export default function DashboardPage() {
 
   const fetchLinks = useCallback(async () => {
     setIsLoading(true);
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || '';
     try {
       const token = await getToken();
       const headers: Record<string, string> = {};
@@ -126,7 +126,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-baseline justify-between">
             <p className="text-base font-bold text-slate-900 truncate max-w-[180px]">{workspaceName}</p>
-            <span className="text-xs font-medium text-slate-500">Organization</span>
+            <span className="text-xs font-medium text-slate-500">Personal</span>
           </div>
         </div>
       </div>

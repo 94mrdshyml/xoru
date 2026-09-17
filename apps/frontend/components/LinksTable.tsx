@@ -65,7 +65,7 @@ export function LinksTable({ links, onRefresh, isLoading }: LinksTableProps) {
       return;
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || '';
 
     try {
       const token = await getToken();

@@ -14,7 +14,7 @@ import {
   X,
   Sparkles,
 } from '@deemlol/next-icons';
-import { OrgWorkspaceSelector } from './OrgWorkspaceSelector';
+import { WorkspaceSelector } from './WorkspaceSelector';
 
 interface SidebarProps {
   onOpenCreateModal?: () => void;
@@ -87,8 +87,8 @@ export function Sidebar({
           )}
         </div>
 
-        {/* Custom Organization & Workspace Selector UI */}
-        <OrgWorkspaceSelector
+        {/* Workspace Selector UI */}
+        <WorkspaceSelector
           activeWorkspaceId={activeWorkspaceId}
           onSelectWorkspace={onSelectWorkspace}
         />

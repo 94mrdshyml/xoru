@@ -27,8 +27,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  const cleanTenantId = (orgId || userId || 'default').replace(/^(org_|usr_|user_)/, '');
-  const defaultWrkId = `wrk_${cleanTenantId}`;
+  const cleanUserId = (userId || 'default').replace(/^(usr_|user_)/, '');
+  const defaultWrkId = `wrk_${cleanUserId}`;
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(defaultWrkId);
 
   return (

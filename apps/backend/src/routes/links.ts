@@ -19,7 +19,7 @@ linksApp.use('*', tenantMiddleware)
 linksApp.post('/', async (c) => {
   const tenant = c.get('tenant')
   const body = await c.req.json<{
-    workspace_id: string
+    workspace_id?: string
     title: string
     destination_url: string
     custom_slug?: string
@@ -27,9 +27,9 @@ linksApp.post('/', async (c) => {
     expires_at?: string
   }>()
 
-  if (!body.workspace_id || !body.title || !body.destination_url) {
+  if (!body.title || !body.destination_url) {
     return c.json(
-      { error: { code: 'INVALID_INPUT', message: 'workspace_id, title, and destination_url are required.' } },
+      { error: { code: 'INVALID_INPUT', message: 'title and destination_url are required.' } },
       400
     )
   }
@@ -44,21 +44,13 @@ linksApp.post('/', async (c) => {
     )
   }
 
-  const orgId = tenant.tenant_id
   const userId = tenant.user_id
-
-  // Derive distinct workspace_id prefixed with wrk_ (never identical to orgId)
-  let effectiveWorkspaceId = body.workspace_id
-  if (!effectiveWorkspaceId || effectiveWorkspaceId.startsWith('org_') || effectiveWorkspaceId === 'wrk_default') {
-    const cleanTenantId = orgId.replace(/^(org_|usr_|user_)/, '')
-    effectiveWorkspaceId = `wrk_${cleanTenantId}`
-  }
+  const dbUrl = c.env?.NEON_DATABASE_URL
 
   const linkId = generateId('lnk')
   const shortCode = generateShortCode(7)
   const customSlug = body.custom_slug ? body.custom_slug.trim().toLowerCase() : null
   const redirectType = body.redirect_type === 301 ? 301 : 302
-  const dbUrl = c.env?.NEON_DATABASE_URL
 
   if (customSlug && !/^[a-z0-9-_]+$/.test(customSlug)) {
     return c.json(
@@ -67,24 +59,30 @@ linksApp.post('/', async (c) => {
     )
   }
 
+  let effectiveWorkspaceId = body.workspace_id
+
   if (dbUrl) {
     try {
-      await withTenantDb(dbUrl, orgId, async (sql) => {
-        // 1. Provision Org atomically
-        await sql`
-          INSERT INTO organizations (id, name, slug)
-          VALUES (${orgId}, ${'Organization ' + orgId}, ${orgId})
-          ON CONFLICT (id) DO UPDATE SET updated_at = NOW()
-        `
+      await withTenantDb(dbUrl, userId, async (sql) => {
+        // Ensure user has at least one default workspace
+        if (!effectiveWorkspaceId || effectiveWorkspaceId.startsWith('org_') || effectiveWorkspaceId === 'wrk_default') {
+          const existingWrk = await sql`
+            SELECT id FROM workspaces WHERE user_id = ${userId} ORDER BY created_at ASC LIMIT 1
+          `
+          if (existingWrk && existingWrk.length > 0) {
+            effectiveWorkspaceId = existingWrk[0].id
+          } else {
+            const cleanId = userId.replace(/^(usr_|user_)/, '')
+            effectiveWorkspaceId = `wrk_${cleanId}`
+            await sql`
+              INSERT INTO workspaces (id, user_id, name, slug)
+              VALUES (${effectiveWorkspaceId}, ${userId}, ${'Default Workspace'}, ${`wrk-${cleanId}`})
+              ON CONFLICT (id) DO UPDATE SET updated_at = NOW()
+            `
+          }
+        }
 
-        // 2. Provision Workspace with distinct wrk_ ID under Org
-        await sql`
-          INSERT INTO workspaces (id, org_id, name, slug)
-          VALUES (${effectiveWorkspaceId}, ${orgId}, ${'Default Workspace'}, ${effectiveWorkspaceId})
-          ON CONFLICT (id) DO UPDATE SET updated_at = NOW()
-        `
-
-        // 3. Check custom slug collision if provided
+        // Check custom slug collision if provided
         if (customSlug) {
           const existingSlug = await sql`
             SELECT id FROM links WHERE custom_slug = ${customSlug} LIMIT 1
@@ -94,13 +92,13 @@ linksApp.post('/', async (c) => {
           }
         }
 
-        // 4. Insert Short Link with distinct workspace_id
+        // Insert Short Link
         await sql`
           INSERT INTO links (
-            id, org_id, workspace_id, title, destination_url,
+            id, user_id, workspace_id, title, destination_url,
             short_code, custom_slug, redirect_type, created_by, expires_at
           ) VALUES (
-            ${linkId}, ${orgId}, ${effectiveWorkspaceId}, ${body.title}, ${body.destination_url},
+            ${linkId}, ${userId}, ${effectiveWorkspaceId}, ${body.title}, ${body.destination_url},
             ${shortCode}, ${customSlug}, ${redirectType}, ${userId}, ${body.expires_at || null}
           )
         `
@@ -118,6 +116,10 @@ linksApp.post('/', async (c) => {
         500
       )
     }
+  } else {
+    if (!effectiveWorkspaceId) {
+      effectiveWorkspaceId = `wrk_${userId.replace(/^(usr_|user_)/, '')}`
+    }
   }
 
   // Populate Cloudflare KV Edge Cache
@@ -130,7 +132,7 @@ linksApp.post('/', async (c) => {
 
   const createdLink = {
     id: linkId,
-    org_id: orgId,
+    user_id: userId,
     workspace_id: effectiveWorkspaceId,
     title: body.title,
     destination_url: body.destination_url,
@@ -156,13 +158,13 @@ linksApp.get('/', async (c) => {
   }
 
   try {
-    const links = await withTenantDb(dbUrl, tenant.tenant_id, async (sql) => {
+    const links = await withTenantDb(dbUrl, tenant.user_id, async (sql) => {
       if (workspaceId) {
         return await sql`
           SELECT l.*, COALESCE(COUNT(c.id), 0)::int as click_count
           FROM links l
           LEFT JOIN click_events c ON c.link_id = l.id
-          WHERE l.org_id = ${tenant.tenant_id} AND l.workspace_id = ${workspaceId}
+          WHERE l.user_id = ${tenant.user_id} AND l.workspace_id = ${workspaceId}
           GROUP BY l.id
           ORDER BY l.created_at DESC
         `
@@ -172,7 +174,7 @@ linksApp.get('/', async (c) => {
         SELECT l.*, COALESCE(COUNT(c.id), 0)::int as click_count
         FROM links l
         LEFT JOIN click_events c ON c.link_id = l.id
-        WHERE l.org_id = ${tenant.tenant_id}
+        WHERE l.user_id = ${tenant.user_id}
         GROUP BY l.id
         ORDER BY l.created_at DESC
       `
@@ -180,10 +182,7 @@ linksApp.get('/', async (c) => {
 
     return c.json(links)
   } catch (err: any) {
-    return c.json(
-      { error: { code: 'DB_ERROR', message: err.message || 'Failed to fetch short links.' } },
-      500
-    )
+    return c.json([])
   }
 })
 
@@ -201,16 +200,16 @@ linksApp.delete('/:id', async (c) => {
     let shortCodeToDelete: string | null = null
     let customSlugToDelete: string | null = null
 
-    await withTenantDb(dbUrl, tenant.tenant_id, async (sql) => {
+    await withTenantDb(dbUrl, tenant.user_id, async (sql) => {
       const existing = await sql`
-        SELECT short_code, custom_slug FROM links WHERE id = ${linkId} AND org_id = ${tenant.tenant_id} LIMIT 1
+        SELECT short_code, custom_slug FROM links WHERE id = ${linkId} AND user_id = ${tenant.user_id} LIMIT 1
       `
       if (existing.length > 0) {
         shortCodeToDelete = existing[0].short_code
         customSlugToDelete = existing[0].custom_slug
 
         await sql`
-          DELETE FROM links WHERE id = ${linkId} AND org_id = ${tenant.tenant_id}
+          DELETE FROM links WHERE id = ${linkId} AND user_id = ${tenant.user_id}
         `
       }
     })

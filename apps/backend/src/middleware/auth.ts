@@ -4,7 +4,6 @@ import { verifyToken } from '@clerk/backend'
 export interface TenantContext {
   tenant_id: string
   user_id: string
-  org_role?: string
 }
 
 declare module 'hono' {
@@ -32,7 +31,7 @@ function parseJwtPayload(token: string): any {
 }
 
 /**
- * Middleware extracting Clerk Organization (tenant_id) and User ID.
+ * Middleware extracting Clerk User ID as tenant_id.
  * In development/testing, accepts X-Tenant-Id override header.
  */
 export async function tenantMiddleware(c: Context, next: Next) {
@@ -43,8 +42,7 @@ export async function tenantMiddleware(c: Context, next: Next) {
   if (devTenantHeader && env.ENVIRONMENT !== 'production') {
     c.set('tenant', {
       tenant_id: devTenantHeader,
-      user_id: 'usr_dev_admin',
-      org_role: 'admin',
+      user_id: devTenantHeader,
     })
     return next()
   }
@@ -83,14 +81,9 @@ export async function tenantMiddleware(c: Context, next: Next) {
       )
     }
 
-    const orgId = payload?.org_id as string | undefined
-    const orgRole = payload?.org_role as string | undefined
-    const tenantId = orgId || userId
-
     c.set('tenant', {
-      tenant_id: tenantId,
+      tenant_id: userId,
       user_id: userId,
-      org_role: orgRole,
     })
 
     return next()
@@ -102,4 +95,3 @@ export async function tenantMiddleware(c: Context, next: Next) {
     )
   }
 }
-

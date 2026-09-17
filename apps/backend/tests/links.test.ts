@@ -24,7 +24,7 @@ describe('Short Link API Endpoints', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Tenant-Id': 'org_test_123',
+        'X-Tenant-Id': 'usr_test_123',
       },
       body: JSON.stringify({}),
     })
@@ -36,7 +36,7 @@ describe('Short Link API Endpoints', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Tenant-Id': 'org_test_123',
+        'X-Tenant-Id': 'usr_test_123',
       },
       body: JSON.stringify({
         workspace_id: 'wrk_test_123',
@@ -54,7 +54,7 @@ describe('Short Link API Endpoints', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Tenant-Id': 'org_test_123',
+        'X-Tenant-Id': 'usr_test_123',
       },
       body: JSON.stringify({
         workspace_id: 'wrk_test_123',
@@ -67,10 +67,9 @@ describe('Short Link API Endpoints', () => {
 
     const data = (await res.json()) as any
     expect(data.id).toMatch(/^lnk_/)
-    expect(data.org_id).toBe('org_test_123')
+    expect(data.user_id).toBe('usr_test_123')
     expect(data.short_code).toHaveLength(7)
     expect(data.custom_slug).toBe('xoru-repo')
     expect(data.destination_url).toBe('https://github.com')
   })
 })
-

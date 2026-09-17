@@ -39,7 +39,7 @@ const healthHandler = (c: any) => {
   })
 }
 
-// Health check endpoints (both root / and /api/v1/health)
+// Health check endpoints
 app.get('/', healthHandler)
 app.get('/api/v1/health', healthHandler)
 
@@ -47,13 +47,12 @@ app.get('/api/v1/health', healthHandler)
 app.get('/api/v1/auth/me', tenantMiddleware, (c) => {
   const tenant = c.get('tenant')
   return c.json({
-    tenant_id: tenant.tenant_id,
+    tenant_id: tenant.user_id,
     user_id: tenant.user_id,
-    org_role: tenant.org_role || null,
   })
 })
 
-// Workspace onboarding endpoint
+// Workspace onboarding endpoint (Auto-provisions "<First Name>'s Workspace")
 app.post('/api/v1/workspaces/onboard', tenantMiddleware, async (c) => {
   const tenant = c.get('tenant')
   const body = await c.req.json<{
@@ -63,32 +62,29 @@ app.post('/api/v1/workspaces/onboard', tenantMiddleware, async (c) => {
     workspace_name?: string
   }>().catch(() => ({} as any))
 
-  const firstName = body.first_name || 'User'
+  const userId = tenant.user_id
+  const firstName = (body.first_name && body.first_name.trim()) ? body.first_name.trim() : 'User'
   const workspaceName = body.workspace_name || `${firstName}'s Workspace`
 
-  const orgId = tenant.tenant_id
-  const cleanId = orgId.replace(/^(org_|usr_|user_)/, '')
-  const orgName = `${firstName}'s Organization`
-  const orgSlug = `org-${cleanId}`
-
-  // Derive distinct wrk_ prefixed workspace ID (never identical to orgId)
-  const workspaceId = `wrk_${cleanId}`
-  const workspaceSlug = `wrk-${cleanId}-default`
+  const cleanId = userId.replace(/^(usr_|user_)/, '')
+  const workspaceId = generateId('wrk')
+  const workspaceSlug = `wrk-${cleanId}-${workspaceId.slice(4, 10)}`
 
   const dbUrl = c.env?.NEON_DATABASE_URL
   if (dbUrl) {
     try {
-      await withTenantDb(dbUrl, orgId, async (sql) => {
-        // 1. Provision Organization atomically
-        await sql`
-          INSERT INTO organizations (id, name, slug)
-          VALUES (${orgId}, ${orgName}, ${orgSlug})
-          ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+      await withTenantDb(dbUrl, userId, async (sql) => {
+        // Check if user already has a workspace
+        const existing = await sql`
+          SELECT id, name, slug FROM workspaces WHERE user_id = ${userId} ORDER BY created_at ASC LIMIT 1
         `
-        // 2. Provision Default Workspace under Organization
+        if (existing && existing.length > 0) {
+          return existing[0]
+        }
+
         await sql`
-          INSERT INTO workspaces (id, org_id, name, slug)
-          VALUES (${workspaceId}, ${orgId}, ${workspaceName}, ${workspaceSlug})
+          INSERT INTO workspaces (id, user_id, name, slug)
+          VALUES (${workspaceId}, ${userId}, ${workspaceName}, ${workspaceSlug})
           ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
         `
       })
@@ -103,44 +99,71 @@ app.post('/api/v1/workspaces/onboard', tenantMiddleware, async (c) => {
 
   return c.json({
     id: workspaceId,
-    org_id: orgId,
+    user_id: userId,
     name: workspaceName,
     slug: workspaceSlug,
   }, 201)
 })
 
-// List Workspaces for active tenant
+// List Workspaces for active user (Auto-provisions default if none exists)
 app.get('/api/v1/workspaces', tenantMiddleware, async (c) => {
   const tenant = c.get('tenant')
+  const userId = tenant.user_id
   const dbUrl = c.env?.NEON_DATABASE_URL
+
   if (!dbUrl) {
-    return c.json([])
+    const cleanId = userId.replace(/^(usr_|user_)/, '')
+    return c.json([{ id: `wrk_${cleanId}`, user_id: userId, name: "Default Workspace", slug: "default" }])
   }
 
   try {
-    const workspaces = await withTenantDb(dbUrl, tenant.tenant_id, async (sql) => {
-      return await sql`
-        SELECT id, org_id, name, slug, created_at, updated_at
+    const workspaces = await withTenantDb(dbUrl, userId, async (sql) => {
+      let list = await sql`
+        SELECT id, user_id, name, slug, created_at, updated_at
         FROM workspaces
-        WHERE org_id = ${tenant.tenant_id}
+        WHERE user_id = ${userId}
         ORDER BY created_at ASC
       `
+
+      // If user has zero workspaces, auto-create "<User>'s Workspace"
+      if (!list || list.length === 0) {
+        const cleanId = userId.replace(/^(usr_|user_)/, '')
+        const newWrkId = generateId('wrk')
+        const newSlug = `wrk-${cleanId}`
+        const newName = `User's Workspace`
+
+        await sql`
+          INSERT INTO workspaces (id, user_id, name, slug)
+          VALUES (${newWrkId}, ${userId}, ${newName}, ${newSlug})
+          ON CONFLICT (id) DO NOTHING
+        `
+
+        list = await sql`
+          SELECT id, user_id, name, slug, created_at, updated_at
+          FROM workspaces
+          WHERE user_id = ${userId}
+          ORDER BY created_at ASC
+        `
+      }
+
+      return list
     })
     return c.json(workspaces)
   } catch (err: any) {
-    return c.json([])
+    const cleanId = userId.replace(/^(usr_|user_)/, '')
+    return c.json([{ id: `wrk_${cleanId}`, user_id: userId, name: "Default Workspace", slug: "default" }])
   }
 })
 
-// Create new Workspace under tenant
+// Create new Workspace under user
 app.post('/api/v1/workspaces', tenantMiddleware, async (c) => {
   const tenant = c.get('tenant')
+  const userId = tenant.user_id
   const body = await c.req.json<{ name: string }>().catch(() => ({} as any))
   if (!body.name || !body.name.trim()) {
     return c.json({ error: { code: 'INVALID_INPUT', message: 'name is required' } }, 400)
   }
 
-  const orgId = tenant.tenant_id
   const workspaceId = generateId('wrk')
   const cleanName = body.name.trim()
   const slugBase = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
@@ -148,15 +171,15 @@ app.post('/api/v1/workspaces', tenantMiddleware, async (c) => {
 
   const dbUrl = c.env?.NEON_DATABASE_URL
   if (dbUrl) {
-    await withTenantDb(dbUrl, orgId, async (sql) => {
+    await withTenantDb(dbUrl, userId, async (sql) => {
       await sql`
-        INSERT INTO workspaces (id, org_id, name, slug)
-        VALUES (${workspaceId}, ${orgId}, ${cleanName}, ${workspaceSlug})
+        INSERT INTO workspaces (id, user_id, name, slug)
+        VALUES (${workspaceId}, ${userId}, ${cleanName}, ${workspaceSlug})
       `
     })
   }
 
-  return c.json({ id: workspaceId, org_id: orgId, name: cleanName, slug: workspaceSlug }, 201)
+  return c.json({ id: workspaceId, user_id: userId, name: cleanName, slug: workspaceSlug }, 201)
 })
 
 import linksApp from './routes/links'
@@ -187,7 +210,8 @@ app.post('/api/v1/admin/reset', async (c) => {
     try {
       const { neon } = await import('@neondatabase/serverless')
       const sql = neon(dbUrl)
-      await sql`TRUNCATE TABLE click_events, retargeting_pixels, smart_routes, links, workspaces, organizations CASCADE;`
+      await sql`DROP TABLE IF EXISTS organizations CASCADE;`
+      await sql`TRUNCATE TABLE click_events, retargeting_pixels, smart_routes, links, workspaces CASCADE;`
       results.db_reset = true
     } catch (err: any) {
       results.db_error = err.message || String(err)
@@ -269,4 +293,3 @@ app.get('/:code_or_slug', async (c) => {
 
 export type AppType = typeof app
 export default app
-

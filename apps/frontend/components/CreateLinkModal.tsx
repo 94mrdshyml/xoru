@@ -19,7 +19,7 @@ export function CreateLinkModal({
   onLinkCreated,
   workspaceId,
 }: CreateLinkModalProps) {
-  const { getToken, orgId, userId } = useAuth();
+  const { getToken, userId } = useAuth();
   const [destinationUrl, setDestinationUrl] = useState('');
   const [title, setTitle] = useState('');
   const [customSlug, setCustomSlug] = useState('');
@@ -47,7 +47,7 @@ export function CreateLinkModal({
       throw new Error('Validation failed');
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || '';
 
     try {
       const token = await getToken();
@@ -58,9 +58,9 @@ export function CreateLinkModal({
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const cleanId = (orgId || userId || 'default').replace(/^(org_|usr_|user_)/, '');
+      const cleanId = (userId || 'default').replace(/^(usr_|user_)/, '');
       const activeWorkspaceId =
-        workspaceId && workspaceId.startsWith('wrk_') && workspaceId !== orgId
+        workspaceId && workspaceId.startsWith('wrk_')
           ? workspaceId
           : `wrk_${cleanId}`;
 
