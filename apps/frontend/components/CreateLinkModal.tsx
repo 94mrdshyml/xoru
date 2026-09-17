@@ -47,7 +47,7 @@ export function CreateLinkModal({
       throw new Error('Validation failed');
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || '';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev';
 
     try {
       const token = await getToken();

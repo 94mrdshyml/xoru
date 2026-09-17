@@ -29,7 +29,7 @@ export default function OnboardingPage() {
         const email = user?.emailAddresses[0]?.emailAddress || '';
         const token = await getToken();
 
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || '';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev';
 
         const res = await fetch(`${backendUrl}/api/v1/workspaces/onboard`, {
           method: 'POST',

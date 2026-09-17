@@ -13,3 +13,5 @@ enabled = true
 [vars]
 ENVIRONMENT = "production"
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_c3dlZXBpbmctbW9jY2FzaW4tNzIxNi5jbGVyay5hY2NvdW50cy5kZXYk"
+NEXT_PUBLIC_BACKEND_URL = "https://xoru-backend.mridu.workers.dev"
+

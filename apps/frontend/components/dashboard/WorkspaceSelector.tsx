@@ -45,7 +45,7 @@ export function WorkspaceSelector({
         headers['X-Tenant-Id'] = userId;
       }
 
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev';
       const res = await fetch(`${backendUrl}/api/v1/workspaces`, { headers });
       if (res.ok) {
         const data = await res.json();
@@ -94,7 +94,7 @@ export function WorkspaceSelector({
         headers['X-Tenant-Id'] = userId;
       }
 
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev';
       const res = await fetch(`${backendUrl}/api/v1/workspaces`, {
         method: 'POST',
         headers,
