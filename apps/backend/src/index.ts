@@ -115,3 +115,4 @@ app.get('/:code_or_slug', async (c) => {
 
 export type AppType = typeof app
 export default app
+

@@ -71,3 +71,4 @@ export async function tenantMiddleware(c: Context, next: Next) {
     )
   }
 }
+

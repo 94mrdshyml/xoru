@@ -7,5 +7,9 @@ kv_namespaces = [
   { binding = "XORU_KV", id = "42b345ca94e942a98d30092527e70184" }
 ]
 
+[observability]
+enabled = true
+head_sampling_rate = 1.0
+
 [vars]
 ENVIRONMENT = "development"

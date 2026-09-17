@@ -1,6 +1,13 @@
 name = "xoru-frontend"
+main = ".vercel/output/static/_worker.js/index.js"
 compatibility_date = "2024-09-16"
-pages_build_output_dir = ".next"
+compatibility_flags = ["nodejs_compat"]
+
+assets = { directory = ".vercel/output/static" }
+
+[observability]
+enabled = true
+head_sampling_rate = 1.0
 
 [vars]
 ENVIRONMENT = "production"

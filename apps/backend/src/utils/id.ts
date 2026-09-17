@@ -12,3 +12,4 @@ export type IDPrefix = 'org' | 'wrk' | 'lnk' | 'usr' | 'srt' | 'pxl' | 'evt' | '
 export function generateId(prefix: IDPrefix): string {
   return `${prefix}_${generateNanoId()}`
 }
+

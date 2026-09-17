@@ -19,3 +19,4 @@ export async function withTenantDb<T>(
   await sql`SET LOCAL app.current_tenant_id = ${tenantId}`
   return callback(sql)
 }
+
