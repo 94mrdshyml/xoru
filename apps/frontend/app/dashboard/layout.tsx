@@ -27,15 +27,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  const cleanUserId = (userId || 'default').replace(/^(usr_|user_)/, '');
-  const defaultWrkId = `wrk_${cleanUserId}`;
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState(defaultWrkId);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
 
   return (
     <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 antialiased">
       {/* Light Theme SaaS Sidebar */}
       <Sidebar
-        activeWorkspaceId={activeWorkspaceId || defaultWrkId}
+        activeWorkspaceId={activeWorkspaceId}
         onSelectWorkspace={(wrkId) => {
           setActiveWorkspaceId(wrkId);
           if (typeof window !== 'undefined') {
@@ -67,7 +65,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             window.dispatchEvent(new Event('linkCreated'));
           }
         }}
-        workspaceId={activeWorkspaceId || defaultWrkId}
+        workspaceId={activeWorkspaceId}
       />
     </div>
   );

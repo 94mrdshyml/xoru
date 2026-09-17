@@ -64,8 +64,21 @@ linksApp.post('/', async (c) => {
   if (dbUrl) {
     try {
       await withTenantDb(dbUrl, userId, async (sql) => {
-        // Ensure user has at least one default workspace
-        if (!effectiveWorkspaceId || effectiveWorkspaceId.startsWith('org_') || effectiveWorkspaceId === 'wrk_default') {
+        // 1. Check if effectiveWorkspaceId actually exists in DB for this user
+        let validWorkspaceId: string | null = null
+        if (effectiveWorkspaceId && !effectiveWorkspaceId.startsWith('org_') && effectiveWorkspaceId !== 'wrk_default') {
+          const checkWrk = await sql`
+            SELECT id FROM workspaces WHERE id = ${effectiveWorkspaceId} AND user_id = ${userId} LIMIT 1
+          `
+          if (checkWrk && checkWrk.length > 0) {
+            validWorkspaceId = checkWrk[0].id
+          }
+        }
+
+        // 2. If valid workspace found, use it. Otherwise, fetch or create a valid workspace
+        if (validWorkspaceId) {
+          effectiveWorkspaceId = validWorkspaceId
+        } else {
           const existingWrk = await sql`
             SELECT id FROM workspaces WHERE user_id = ${userId} ORDER BY created_at ASC LIMIT 1
           `
@@ -73,12 +86,14 @@ linksApp.post('/', async (c) => {
             effectiveWorkspaceId = existingWrk[0].id
           } else {
             const cleanId = userId.replace(/^(usr_|user_)/, '')
-            effectiveWorkspaceId = `wrk_${cleanId}`
+            const newWrkId = generateId('wrk')
+            const workspaceSlug = `wrk-${cleanId}-${newWrkId.slice(4, 10)}`
             await sql`
               INSERT INTO workspaces (id, user_id, name, slug)
-              VALUES (${effectiveWorkspaceId}, ${userId}, ${'Default Workspace'}, ${`wrk-${cleanId}`})
+              VALUES (${newWrkId}, ${userId}, ${'Personal Workspace'}, ${workspaceSlug})
               ON CONFLICT (id) DO UPDATE SET updated_at = NOW()
             `
+            effectiveWorkspaceId = newWrkId
           }
         }
 
