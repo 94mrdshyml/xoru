@@ -156,19 +156,25 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - **Sub-10ms Cloudflare KV Edge Redirection Engine ([apps/backend/src/index.ts](file:///c:/vibe%20coding/xoru/apps/backend/src/index.ts))**:
   - `GET /:code_or_slug`: Fast lookup against Cloudflare KV (`lnk:{code}`). Fallback to Neon DB on cache miss with async `c.executionCtx.waitUntil(...)` cache hydration.
 - **Interactive Next.js Dashboard Components ([apps/frontend/components/](file:///c:/vibe%20coding/xoru/apps/frontend/components/))**:
+  - `Sidebar.tsx`: Full SaaS sidebar shell with Xoru branding, Organization Switcher, navigation tabs, and quick "+ New Short Link" CTA button.
+  - `Header.tsx`: Responsive header bar with mobile drawer toggle, "Multi-Tenant RLS Isolated" pill, and edge performance indicators.
+  - `layout.tsx`: SaaS dashboard layout shell wrapping `/dashboard/*` in a desktop sidebar + fluid main content structure.
   - `CreateLinkModal.tsx`: Creation modal with destination URL validation, title, custom slug prefix (`xoru.link/`), redirect type selector, and state-morphing submit button (`MorphButton`).
-  - `LinksTable.tsx`: Dashboard table with click metrics, copy-to-clipboard, downloadable QR code modal trigger, and delete confirmation.
+  - `LinksTable.tsx`: Dashboard table with live search input filter, click metrics, copy-to-clipboard, downloadable QR code modal trigger, and delete confirmation.
   - `QrCodeModal.tsx`: Vector QR code renderer with instant copy and downloadable PNG asset generation.
   - Integrated into [`apps/frontend/app/dashboard/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/page.tsx) with real-time short links fetching.
+- **Neon DB Atomic RLS Engine ([apps/backend/src/db/client.ts](file:///c:/vibe%20coding/xoru/apps/backend/src/db/client.ts))**:
+  - Implemented `withTenantDb` using `sql.transaction` executing `SELECT set_config('app.current_tenant_id', tenantId, true)` and target query atomically in a single HTTP request payload.
+  - Added `POST /api/v1/admin/migrate` database migration endpoint applying Neon RLS tables & policies.
 - **Test Suites ([apps/backend/tests/links.test.ts](file:///c:/vibe%20coding/xoru/apps/backend/tests/links.test.ts), [apps/frontend/e2e/links.spec.ts](file:///c:/vibe%20coding/xoru/apps/frontend/e2e/links.spec.ts))**:
   - 10 Vitest backend tests passing 100% green.
   - Playwright E2E test added for dashboard link creation.
 
 ### How We Built It
-- Base62 short codes stored in Neon DB with strict multi-tenant isolation and replicated to Cloudflare KV for sub-10ms edge redirects.
+- Base62 short codes stored in Neon DB with strict multi-tenant isolation via atomic `sql.transaction` set_config and replicated to Cloudflare KV for sub-10ms edge redirects.
 
 ### In Scope
-- Base62 short code generator, links CRUD routes, sub-10ms edge redirect handler, KV cache hydration, CreateLinkModal, LinksTable, QrCodeModal, Vitest suite, and Playwright spec.
+- Base62 short code generator, links CRUD routes, sub-10ms edge redirect handler, KV cache hydration, full SaaS Dashboard shell (`Sidebar.tsx`, `Header.tsx`, `layout.tsx`), `CreateLinkModal`, `LinksTable` with search filter, `QrCodeModal`, Vitest suite, and Playwright spec.
 
 ### Out of Scope
 - Smart Dynamic Routing (Device, Geo, A/B Testing) scheduled for Session 6.
@@ -178,6 +184,6 @@ This log tracks feature additions, technical decisions, architectural changes, a
 
 ### Notes for Future Sessions
 - Live Backend Endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/health`
-- Live Frontend Worker: `https://xoru-frontend.mridu.workers.dev/`
+- Live Frontend Worker: `https://xoru-frontend.mridu.workers.dev/dashboard`
 - **Session 6 Focus**: Smart Dynamic Routing rules (`smart_routes` table: Device OS, Geo-location, A/B percentage split) and Neon DB click event analytics logging.
 
