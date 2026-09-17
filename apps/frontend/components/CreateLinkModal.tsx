@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useAuth } from '@clerk/nextjs';
 import { CustomModal } from './ui/CustomModal';
 import { MorphButton } from './ui/MorphButton';
 import { Link2, Sparkles, AlertCircle } from 'lucide-react';
@@ -18,6 +19,7 @@ export function CreateLinkModal({
   onLinkCreated,
   workspaceId,
 }: CreateLinkModalProps) {
+  const { getToken, orgId, userId } = useAuth();
   const [destinationUrl, setDestinationUrl] = useState('');
   const [title, setTitle] = useState('');
   const [customSlug, setCustomSlug] = useState('');
@@ -48,14 +50,21 @@ export function CreateLinkModal({
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev';
 
     try {
+      const token = await getToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const activeWorkspaceId = workspaceId || orgId || userId || 'wrk_default';
+
       const res = await fetch(`${backendUrl}/api/v1/links`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-Id': 'org_dev_demo_workspace',
-        },
+        headers,
         body: JSON.stringify({
-          workspace_id: workspaceId || 'wrk_default',
+          workspace_id: activeWorkspaceId,
           title: title.trim(),
           destination_url: destinationUrl.trim(),
           custom_slug: customSlug.trim() || undefined,
@@ -87,7 +96,7 @@ export function CreateLinkModal({
       isOpen={isOpen}
       onClose={handleClose}
       title="Create Short Link"
-      description="Transform any destination URL into a sub-10ms intelligent short link."
+      description="Transform any destination URL into an intelligent short link."
     >
       <form onSubmit={(e) => e.preventDefault()} className="space-y-4 pt-1">
         {errorMsg && (
@@ -181,4 +190,3 @@ export function CreateLinkModal({
     </CustomModal>
   );
 }
-

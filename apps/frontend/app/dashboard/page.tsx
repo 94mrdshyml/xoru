@@ -1,6 +1,6 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
+import { useUser, useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { Link2, Plus, BarChart2, Layers } from 'lucide-react';
@@ -8,7 +8,8 @@ import { LinksTable, ShortLink } from '@/components/LinksTable';
 import { CreateLinkModal } from '@/components/CreateLinkModal';
 
 export default function DashboardPage() {
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { isLoaded: isUserLoaded, isSignedIn, user } = useUser();
+  const { getToken, orgId, userId, isLoaded: isAuthLoaded } = useAuth();
   const router = useRouter();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,29 +20,35 @@ export default function DashboardPage() {
     setIsLoading(true);
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev';
     try {
-      const res = await fetch(`${backendUrl}/api/v1/links`, {
-        headers: {
-          'X-Tenant-Id': 'org_dev_demo_workspace',
-        },
-      });
+      const token = await getToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`${backendUrl}/api/v1/links`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setLinks(data);
+        setLinks(Array.isArray(data) ? data : []);
+      } else {
+        setLinks([]);
       }
     } catch {
-      // Fallback
+      setLinks([]);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [getToken]);
 
   useEffect(() => {
-    if (isLoaded && !isSignedIn) {
-      router.push('/sign-in');
-    } else if (isSignedIn) {
-      fetchLinks();
+    if (isUserLoaded && isAuthLoaded) {
+      if (!isSignedIn) {
+        router.push('/sign-in');
+      } else {
+        fetchLinks();
+      }
     }
-  }, [isLoaded, isSignedIn, router, fetchLinks]);
+  }, [isUserLoaded, isAuthLoaded, isSignedIn, router, fetchLinks]);
 
   useEffect(() => {
     const handleGlobalCreate = () => fetchLinks();
@@ -49,7 +56,7 @@ export default function DashboardPage() {
     return () => window.removeEventListener('linkCreated', handleGlobalCreate);
   }, [fetchLinks]);
 
-  if (!isLoaded || !user) {
+  if (!isUserLoaded || !isAuthLoaded || !user) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-6 w-6 animate-spin rounded-full border-3 border-indigo-600 border-t-transparent" />
@@ -59,6 +66,7 @@ export default function DashboardPage() {
 
   const firstName = user.firstName || 'User';
   const lastName = user.lastName || '';
+  const activeWorkspaceId = orgId || userId || `wrk_${user.id}`;
   const workspaceName = `${firstName}'s Workspace`;
 
   const totalClicks = links.reduce((sum, link) => sum + (link.click_count || 0), 0);
@@ -153,7 +161,7 @@ export default function DashboardPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onLinkCreated={fetchLinks}
-        workspaceId="wrk_default"
+        workspaceId={activeWorkspaceId}
       />
     </div>
   );

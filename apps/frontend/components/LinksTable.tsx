@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { ExternalLink, Copy, QrCode, Trash2, Check, BarChart2, Calendar, Search, Filter } from 'lucide-react';
+import { useAuth } from '@clerk/nextjs';
 import { QrCodeModal } from './QrCodeModal';
 
 export interface ShortLink {
@@ -22,6 +23,7 @@ interface LinksTableProps {
 }
 
 export function LinksTable({ links, onRefresh, isLoading }: LinksTableProps) {
+  const { getToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [qrModalState, setQrModalState] = useState<{ isOpen: boolean; url: string; title: string }>({
@@ -66,11 +68,15 @@ export function LinksTable({ links, onRefresh, isLoading }: LinksTableProps) {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev';
 
     try {
+      const token = await getToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch(`${backendUrl}/api/v1/links/${linkId}`, {
         method: 'DELETE',
-        headers: {
-          'X-Tenant-Id': 'org_dev_demo_workspace',
-        },
+        headers,
       });
 
       if (res.ok) {
