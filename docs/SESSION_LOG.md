@@ -187,3 +187,45 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - Live Frontend Worker: `https://xoru-frontend.mridu.workers.dev/dashboard`
 - **Session 6 Focus**: Smart Dynamic Routing rules (`smart_routes` table: Device OS, Geo-location, A/B percentage split) and Neon DB click event analytics logging.
 
+---
+
+## Session 6 — Dashboard Light Theme Redesign & Strict Clerk JWT Multi-Tenant Security
+
+**Date & Time (IST):** 2026-09-17 18:15 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **Full Light-Theme SaaS Dashboard UI/UX Redesign**:
+  - Converted sidebar ([`Sidebar.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/dashboard/Sidebar.tsx)) to a clean, production-grade light theme (`bg-white border-r border-slate-200/80`).
+  - Unified color scheme (`bg-white` and `bg-slate-50/50`), compact typography (`text-xl font-bold` section titles, `text-2xl` KPI numbers), styled Clerk `OrganizationSwitcher` and `UserButton`.
+  - Purged all technical infrastructure jargon ("KV", "RLS", "Cloudflare KV", "Neon DB") from user-facing copy.
+- **Strict Clerk JWT Multi-Tenant Isolation & Security Fix**:
+  - Purged all legacy hardcoded placeholder headers (`X-Tenant-Id: org_dev_demo_workspace`, `workspace_id: wrk_default`) from frontend client components.
+  - Updated [`apps/frontend/app/dashboard/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/page.tsx), [`CreateLinkModal.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/CreateLinkModal.tsx), and [`LinksTable.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/LinksTable.tsx) to use Clerk's `useAuth()` hook and pass `Authorization: Bearer ${token}` headers in all API requests (`GET`, `POST`, `DELETE`).
+  - Guaranteed 100% tenant data isolation in Neon DB — logged-in users only see and manage links created within their authenticated Clerk Organization / User scope.
+- **Backend Atomic Foreign Key Auto-Provisioning**:
+  - Updated [`apps/backend/src/routes/links.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/routes/links.ts) to automatically upsert `organizations` and `workspaces` records (`ON CONFLICT (id) DO UPDATE SET updated_at = NOW()`) inside atomic transactions before creating short links, preventing FK constraint errors on new user registrations.
+- **Verified CI/CD Pipeline & Live Deployment**:
+  - All 4 GitHub Actions jobs passed 100% green (Unit Tests, E2E Tests, Backend Worker, Frontend Worker).
+
+### How We Built It
+- Frontend components request Clerk Bearer JWT tokens via `useAuth().getToken()`.
+- Hono backend middleware (`auth.ts`) decodes token claims via `@clerk/backend` `verifyToken`, extracting `verified.org_id` / `verified.sub` (`tenant_id`).
+- Neon DB engine (`client.ts`) executes `SELECT set_config('app.current_tenant_id', tenantId, true)` inside atomic transaction blocks for 100% multi-tenant isolation.
+
+### In Scope
+- Light-theme SaaS redesign, Clerk JWT Bearer token authentication integration across frontend components, database FK auto-provisioning, multi-tenant isolation verification, unit test execution, and green GitHub Actions deployment.
+
+### Out of Scope
+- Smart Dynamic Routing (Device, Geo, A/B Testing) scheduled for Session 7.
+
+### Breaking Changes
+- `X-Tenant-Id` header is no longer accepted from frontend clients; API requests require a valid Clerk Bearer JWT token in production.
+
+### Notes for Future Sessions
+- Live Backend Endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/health`
+- Live Frontend Dashboard: `https://xoru-frontend.mridu.workers.dev/dashboard`
+- **Session 7 Focus**: Smart Dynamic Routing rules (`smart_routes` table: Device OS, Geo-location, A/B percentage split) and click event analytics logging.
+
+
