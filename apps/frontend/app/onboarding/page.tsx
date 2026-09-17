@@ -3,7 +3,7 @@
 import { useUser, useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Link2, Loader2, CheckCircle2 } from 'lucide-react';
+import { Link2, Loader as Loader2, CheckCircle as CheckCircle2 } from '@deemlol/next-icons';
 
 export default function OnboardingPage() {
   const { user, isLoaded: isUserLoaded } = useUser();

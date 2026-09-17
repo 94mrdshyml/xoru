@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Menu, Plus, Link2 } from 'lucide-react';
+import { Menu, Plus, Link2 } from '@deemlol/next-icons';
 
 interface HeaderProps {
   onOpenMobileSidebar: () => void;

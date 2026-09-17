@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { CustomModal } from './ui/CustomModal';
 import { MorphButton } from './ui/MorphButton';
-import { Link2, Sparkles, AlertCircle } from 'lucide-react';
+import { Link2, Sparkles, AlertCircle } from '@deemlol/next-icons';
 
 interface CreateLinkModalProps {
   isOpen: boolean;

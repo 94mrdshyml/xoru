@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { CustomModal } from './ui/CustomModal';
 import { MorphButton } from './ui/MorphButton';
-import { Download, Copy, Check, Link as LinkIcon } from 'lucide-react';
+import { Download, Copy, Check, Link as LinkIcon } from '@deemlol/next-icons';
 
 interface QrCodeModalProps {
   isOpen: boolean;

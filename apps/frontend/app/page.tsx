@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Link2, ArrowRight, Zap, Shield, Sparkles } from 'lucide-react';
+import { Link2, ArrowRight, Zap, Shield, Sparkles } from '@deemlol/next-icons';
 
 export default function HomePage() {
   return (

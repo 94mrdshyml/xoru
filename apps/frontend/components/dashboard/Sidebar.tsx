@@ -3,43 +3,50 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { OrganizationSwitcher, UserButton } from '@clerk/nextjs';
+import { UserButton } from '@clerk/nextjs';
 import {
   Link2,
-  LayoutDashboard,
-  BarChart3,
-  GitFork,
+  Layout,
+  BarChart2,
+  GitBranch,
   Target,
-  KeyRound,
-  Plus,
+  Key,
   X,
   Sparkles,
-} from 'lucide-react';
+} from '@deemlol/next-icons';
+import { OrgWorkspaceSelector } from './OrgWorkspaceSelector';
 
 interface SidebarProps {
-  onOpenCreateModal: () => void;
+  onOpenCreateModal?: () => void;
+  activeWorkspaceId: string;
+  onSelectWorkspace: (workspaceId: string) => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
 }
 
-export function Sidebar({ onOpenCreateModal, isMobileOpen, onCloseMobile }: SidebarProps) {
+export function Sidebar({
+  activeWorkspaceId,
+  onSelectWorkspace,
+  isMobileOpen,
+  onCloseMobile,
+}: SidebarProps) {
   const pathname = usePathname();
 
   const navItems = [
     {
       name: 'Overview & Links',
       href: '/dashboard',
-      icon: LayoutDashboard,
+      icon: Layout,
     },
     {
       name: 'Analytics',
       href: '/dashboard/analytics',
-      icon: BarChart3,
+      icon: BarChart2,
     },
     {
       name: 'Smart Routes',
       href: '/dashboard/routes',
-      icon: GitFork,
+      icon: GitBranch,
     },
     {
       name: 'Pixels',
@@ -49,14 +56,14 @@ export function Sidebar({ onOpenCreateModal, isMobileOpen, onCloseMobile }: Side
     {
       name: 'API Keys',
       href: '/dashboard/settings',
-      icon: KeyRound,
+      icon: Key,
     },
   ];
 
   const sidebarContent = (
     <div className="flex h-full w-full flex-col justify-between bg-white text-slate-700 border-r border-slate-200/80">
       {/* Top Brand & Workspace Header */}
-      <div className="p-4 space-y-5">
+      <div className="p-4 space-y-4">
         <div className="flex items-center justify-between px-1">
           <Link href="/dashboard" className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm">
@@ -80,21 +87,11 @@ export function Sidebar({ onOpenCreateModal, isMobileOpen, onCloseMobile }: Side
           )}
         </div>
 
-        {/* Organization Switcher Surface */}
-        <div className="rounded-xl border border-slate-200/90 bg-white p-1 shadow-sm">
-          <OrganizationSwitcher
-            appearance={{
-              elements: {
-                rootBox: 'w-full',
-                organizationSwitcherTrigger:
-                  'w-full flex justify-between items-center px-2.5 py-1.5 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-50 rounded-lg transition-all border border-transparent hover:border-slate-200/80',
-                organizationPreviewTextContainer: 'text-left font-semibold text-slate-900 text-xs',
-                organizationSwitcherTriggerIcon: 'text-slate-400 w-3.5 h-3.5',
-                avatarBox: 'h-6 w-6 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-600 font-bold',
-              },
-            }}
-          />
-        </div>
+        {/* Custom Organization & Workspace Selector UI */}
+        <OrgWorkspaceSelector
+          activeWorkspaceId={activeWorkspaceId}
+          onSelectWorkspace={onSelectWorkspace}
+        />
 
         {/* Navigation Section */}
         <div className="space-y-1 pt-1">

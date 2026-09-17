@@ -1,19 +1,31 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useAuth } from '@clerk/nextjs';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { Header } from '@/components/dashboard/Header';
 import { CreateLinkModal } from '@/components/CreateLinkModal';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { orgId, userId } = useAuth();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const cleanTenantId = (orgId || userId || 'default').replace(/^(org_|usr_|user_)/, '');
+  const defaultWrkId = `wrk_${cleanTenantId}`;
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(defaultWrkId);
 
   return (
     <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 antialiased">
       {/* Light Theme SaaS Sidebar */}
       <Sidebar
-        onOpenCreateModal={() => setIsCreateModalOpen(true)}
+        activeWorkspaceId={activeWorkspaceId || defaultWrkId}
+        onSelectWorkspace={(wrkId) => {
+          setActiveWorkspaceId(wrkId);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('workspaceChanged', { detail: wrkId }));
+          }
+        }}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
@@ -39,7 +51,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             window.dispatchEvent(new Event('linkCreated'));
           }
         }}
-        workspaceId="wrk_default"
+        workspaceId={activeWorkspaceId || defaultWrkId}
       />
     </div>
   );

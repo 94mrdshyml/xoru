@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Loader2, Check } from 'lucide-react';
+import { Loader as Loader2, Check } from '@deemlol/next-icons';
 
 export type ButtonState = 'idle' | 'loading' | 'success';
 

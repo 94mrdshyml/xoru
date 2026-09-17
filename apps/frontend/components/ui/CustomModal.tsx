@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X } from '@deemlol/next-icons';
 
 interface CustomModalProps {
   isOpen: boolean;

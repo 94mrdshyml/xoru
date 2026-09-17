@@ -3,7 +3,7 @@
 import { useUser, useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
-import { Link2, BarChart2, Layers } from 'lucide-react';
+import { Link2, BarChart2, Layers } from '@deemlol/next-icons';
 import { LinksTable, ShortLink } from '@/components/LinksTable';
 
 export default function DashboardPage() {

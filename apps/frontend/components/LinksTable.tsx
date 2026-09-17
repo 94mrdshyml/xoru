@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { ExternalLink, Copy, QrCode, Trash2, Check, BarChart2, Calendar, Search, Filter } from 'lucide-react';
+import { ExternalLink, Copy, Code as QrCode, Trash2, Check, BarChart2, Calendar, Search, Filter } from '@deemlol/next-icons';
 import { useAuth } from '@clerk/nextjs';
 import { QrCodeModal } from './QrCodeModal';
 

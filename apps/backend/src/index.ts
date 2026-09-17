@@ -109,6 +109,56 @@ app.post('/api/v1/workspaces/onboard', tenantMiddleware, async (c) => {
   }, 201)
 })
 
+// List Workspaces for active tenant
+app.get('/api/v1/workspaces', tenantMiddleware, async (c) => {
+  const tenant = c.get('tenant')
+  const dbUrl = c.env?.NEON_DATABASE_URL
+  if (!dbUrl) {
+    return c.json([])
+  }
+
+  try {
+    const workspaces = await withTenantDb(dbUrl, tenant.tenant_id, async (sql) => {
+      return await sql`
+        SELECT id, org_id, name, slug, created_at, updated_at
+        FROM workspaces
+        WHERE org_id = ${tenant.tenant_id}
+        ORDER BY created_at ASC
+      `
+    })
+    return c.json(workspaces)
+  } catch (err: any) {
+    return c.json([])
+  }
+})
+
+// Create new Workspace under tenant
+app.post('/api/v1/workspaces', tenantMiddleware, async (c) => {
+  const tenant = c.get('tenant')
+  const body = await c.req.json<{ name: string }>().catch(() => ({} as any))
+  if (!body.name || !body.name.trim()) {
+    return c.json({ error: { code: 'INVALID_INPUT', message: 'name is required' } }, 400)
+  }
+
+  const orgId = tenant.tenant_id
+  const workspaceId = generateId('wrk')
+  const cleanName = body.name.trim()
+  const slugBase = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  const workspaceSlug = `wrk-${slugBase}-${workspaceId.slice(4, 10)}`
+
+  const dbUrl = c.env?.NEON_DATABASE_URL
+  if (dbUrl) {
+    await withTenantDb(dbUrl, orgId, async (sql) => {
+      await sql`
+        INSERT INTO workspaces (id, org_id, name, slug)
+        VALUES (${workspaceId}, ${orgId}, ${cleanName}, ${workspaceSlug})
+      `
+    })
+  }
+
+  return c.json({ id: workspaceId, org_id: orgId, name: cleanName, slug: workspaceSlug }, 201)
+})
+
 import linksApp from './routes/links'
 import { runDatabaseMigration } from './db/migrate'
 
