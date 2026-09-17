@@ -223,9 +223,17 @@ This log tracks feature additions, technical decisions, architectural changes, a
 ### Breaking Changes
 - `X-Tenant-Id` header is no longer accepted from frontend clients; API requests require a valid Clerk Bearer JWT token in production.
 
+- **Workspace ID vs Organization ID Architectural Fix**:
+  - Enforced strict separation between Organization IDs (`org_...`) and Workspace IDs (`wrk_...`) in [`apps/backend/src/routes/links.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/routes/links.ts) and [`CreateLinkModal.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/CreateLinkModal.tsx).
+  - Backend derives distinct `wrk_` prefixed workspace IDs (`effectiveWorkspaceId = wrk_${cleanTenantId}`) when creating short links, ensuring `workspaces.id` is never identical to `organizations.id`.
+- **Database Purge & Admin Reset Endpoint**:
+  - Implemented `POST /api/v1/admin/reset` in [`apps/backend/src/index.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/index.ts) executing `TRUNCATE TABLE click_events, retargeting_pixels, smart_routes, links, workspaces, organizations CASCADE;` and purging Clerk test users.
+  - Executed admin reset against live production Neon DB and Clerk.
+
 ### Notes for Future Sessions
 - Live Backend Endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/health`
 - Live Frontend Dashboard: `https://xoru-frontend.mridu.workers.dev/dashboard`
 - **Session 7 Focus**: Smart Dynamic Routing rules (`smart_routes` table: Device OS, Geo-location, A/B percentage split) and click event analytics logging.
+
 
 
