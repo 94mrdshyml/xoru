@@ -94,11 +94,16 @@ app.post('/api/v1/workspaces/onboard', tenantMiddleware, async (c) => {
   }, 201)
 })
 
-// Public Short Link Redirection Endpoint (Sub-10ms Cloudflare KV lookup)
+import linksApp from './routes/links'
+
+// Mount Short Link CRUD Router
+app.route('/api/v1/links', linksApp)
+
+// Public Short Link Redirection Endpoint (Sub-10ms Cloudflare KV lookup + DB fallback)
 app.get('/:code_or_slug', async (c) => {
   const code = c.req.param('code_or_slug')
 
-  if (['health', 'docs', 'favicon.ico'].includes(code)) {
+  if (['health', 'docs', 'favicon.ico', 'api'].includes(code)) {
     return c.redirect('/api/v1/health')
   }
 
@@ -107,6 +112,35 @@ app.get('/:code_or_slug', async (c) => {
     const targetUrl = await c.env.XORU_KV.get(`lnk:${code}`)
     if (targetUrl) {
       return c.redirect(targetUrl, 302)
+    }
+  }
+
+  // 2. Cache Miss: Fallback to Neon DB query
+  const dbUrl = c.env?.NEON_DATABASE_URL
+  if (dbUrl) {
+    try {
+      const { neon } = await import('@neondatabase/serverless')
+      const sql = neon(dbUrl)
+      const rows = await sql`
+        SELECT destination_url, redirect_type FROM links
+        WHERE (short_code = ${code} OR custom_slug = ${code}) AND is_active = TRUE
+        LIMIT 1
+      `
+      if (rows.length > 0) {
+        const link = rows[0]
+        const redirectStatus = link.redirect_type === 301 ? 301 : 302
+
+        // Async hydrate Cloudflare KV
+        if (c.env?.XORU_KV && c.executionCtx?.waitUntil) {
+          c.executionCtx.waitUntil(
+            c.env.XORU_KV.put(`lnk:${code}`, link.destination_url)
+          )
+        }
+
+        return c.redirect(link.destination_url, redirectStatus)
+      }
+    } catch {
+      // Continue to 404
     }
   }
 

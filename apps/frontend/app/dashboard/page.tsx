@@ -2,19 +2,46 @@
 
 import { UserButton, OrganizationSwitcher, useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link2, Plus, BarChart3, Settings, ShieldCheck } from 'lucide-react';
-import { MorphButton } from '@/components/ui/MorphButton';
+import { CreateLinkModal } from '@/components/CreateLinkModal';
+import { LinksTable, ShortLink } from '@/components/LinksTable';
 
 export default function DashboardPage() {
   const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [links, setLinks] = useState<ShortLink[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchLinks = useCallback(async () => {
+    setIsLoading(true);
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev';
+    try {
+      const res = await fetch(`${backendUrl}/api/v1/links`, {
+        headers: {
+          'X-Tenant-Id': 'org_dev_demo_workspace',
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLinks(data);
+      }
+    } catch {
+      // Fallback
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
       router.push('/sign-in');
+    } else if (isSignedIn) {
+      fetchLinks();
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isLoaded, isSignedIn, router, fetchLinks]);
 
   if (!isLoaded || !user) {
     return (
@@ -28,6 +55,8 @@ export default function DashboardPage() {
   const lastName = user.lastName || '';
   const email = user.emailAddresses[0]?.emailAddress || '';
   const workspaceName = `${firstName}'s Workspace`;
+
+  const totalClicks = links.reduce((sum, link) => sum + (link.click_count || 0), 0);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -78,10 +107,13 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              <MorphButton successText="Link Created!">
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 active:scale-[0.98] transition-all duration-200"
+              >
                 <Plus className="w-4 h-4 stroke-[2.5]" />
                 <span>Create Short Link</span>
-              </MorphButton>
+              </button>
             </div>
           </div>
         </div>
@@ -93,8 +125,8 @@ export default function DashboardPage() {
               <span className="text-xs font-semibold uppercase tracking-wider">Total Links</span>
               <Link2 className="w-5 h-5 text-indigo-600" />
             </div>
-            <p className="text-3xl font-bold text-slate-900">0</p>
-            <p className="text-xs text-slate-500">0 active in current workspace</p>
+            <p className="text-3xl font-bold text-slate-900">{links.length}</p>
+            <p className="text-xs text-slate-500">{links.length} active short link(s)</p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-2">
@@ -102,7 +134,7 @@ export default function DashboardPage() {
               <span className="text-xs font-semibold uppercase tracking-wider">Total Clicks</span>
               <BarChart3 className="w-5 h-5 text-indigo-600" />
             </div>
-            <p className="text-3xl font-bold text-slate-900">0</p>
+            <p className="text-3xl font-bold text-slate-900">{totalClicks}</p>
             <p className="text-xs text-slate-500">Sub-10ms KV edge redirects</p>
           </div>
 
@@ -115,7 +147,27 @@ export default function DashboardPage() {
             <p className="text-xs text-slate-500">Neon RLS Protected</p>
           </div>
         </div>
+
+        {/* Short Links Section */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-900">Your Short Links</h3>
+            <span className="text-xs font-semibold text-slate-500">
+              {links.length} {links.length === 1 ? 'link' : 'links'} total
+            </span>
+          </div>
+
+          <LinksTable links={links} onRefresh={fetchLinks} isLoading={isLoading} />
+        </div>
       </main>
+
+      {/* Create Link Modal */}
+      <CreateLinkModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onLinkCreated={fetchLinks}
+        workspaceId="wrk_default"
+      />
     </div>
   );
 }

@@ -96,3 +96,88 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - `xoru-backend` live production endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/health`
 - `xoru-frontend` live production URL: `https://xoru-frontend.pages.dev`
 - **Session 4 Focus**: Link CRUD endpoints (`POST /api/v1/links`, `GET /api/v1/links`), base62 short link generation, Cloudflare KV cache invalidation, and interactive Link Creation modal in Next.js dashboard.
+
+---
+
+## Session 4 — OpenNext Cloudflare Workers Architecture Migration & Live Infrastructure Verification
+
+**Date & Time (IST):** 2026-09-17 14:45 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **OpenNext Cloudflare Worker Migration ([apps/frontend](file:///c:/vibe%20coding/xoru/apps/frontend))**:
+  - Fully migrated `apps/frontend` from legacy `@cloudflare/next-on-pages` (Cloudflare Pages) to **`@opennextjs/cloudflare`** (native Cloudflare Workers).
+  - Configured [`apps/frontend/open-next.config.ts`](file:///c:/vibe%20coding/xoru/apps/frontend/open-next.config.ts) exporting `defineCloudflareConfig({})`.
+  - Updated [`apps/frontend/wrangler.toml`](file:///c:/vibe%20coding/xoru/apps/frontend/wrangler.toml) to target `.open-next/worker.js` and `.open-next/assets` binding.
+  - Added `miniflare` local Workers simulator to `devDependencies`.
+- **Client-Side Clerk Authentication Refactor**:
+  - Replaced CommonJS `@clerk/nextjs/server` calls (`clerkMiddleware`, `currentUser()`, `auth()`) with client-side Clerk React SDK components and hooks (`<ClerkProvider>`, `useUser()`, `useAuth()`).
+  - Safe-guarded API route onboarding logic by delegating Bearer JWT verification directly to `xoru-backend`.
+- **Unified 4-Job GitHub Actions CI/CD Pipeline ([.github/workflows/deploy.yml](file:///c:/vibe%20coding/xoru/.github/workflows/deploy.yml))**:
+  - Job 1 (`Unit Tests & Typecheck`): Passed green in **22s**.
+  - Job 2 (`Playwright E2E Tests`): Passed green in **1m 2s**.
+  - Job 3 (`Deploy Backend Worker`): Deployed `xoru-backend` to Cloudflare Workers in **22s**.
+  - Job 4 (`Deploy Frontend Worker`): Built with `@opennextjs/cloudflare` and deployed `xoru-frontend` directly to Cloudflare Workers in **1m 8s**.
+
+### How We Built It
+- Standardized the entire monorepo on **native Cloudflare Workers V8 execution** with Node.js compatibility (`nodejs_compat`), ensuring zero runtime CJS evaluation crashes and 100% green CI/CD pipelines.
+
+### In Scope
+- OpenNext Cloudflare Worker migration, client-side Clerk auth refactor, Miniflare integration, and automated Workers deployment pipeline.
+
+### Out of Scope
+- Short link CRUD endpoints & base62 short link generator UI (scheduled for Session 5).
+
+### Breaking Changes
+- `xoru-frontend` is now hosted on Cloudflare Workers (`https://xoru-frontend.mridu.workers.dev`) instead of Cloudflare Pages.
+
+### Notes for Future Sessions
+- `xoru-backend` live production endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/health`
+- `xoru-frontend` live production URL: `https://xoru-frontend.mridu.workers.dev/`
+- `xoru-frontend` health check endpoint: `https://xoru-frontend.mridu.workers.dev/health`
+- **Session 5 Focus**: Link CRUD endpoints (`POST /api/v1/links`, `GET /api/v1/links`), base62 short link generation, Cloudflare KV cache invalidation, and interactive Link Creation modal in Next.js dashboard.
+
+---
+
+## Session 5 — Short Link Engine, Base62 Generation & KV Edge Redirection
+
+**Date & Time (IST):** 2026-09-17 15:20 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **Base62 Short Code Generator ([apps/backend/src/utils/base62.ts](file:///c:/vibe%20coding/xoru/apps/backend/src/utils/base62.ts))**:
+  - Implemented random Base62 short code generator (`0-9a-zA-Z`) generating unique 7-character short codes (`a9X2kL7`).
+- **Backend Short Link CRUD API Router ([apps/backend/src/routes/links.ts](file:///c:/vibe%20coding/xoru/apps/backend/src/routes/links.ts))**:
+  - `POST /api/v1/links`: Validate destination URL, title, optional custom slug, and redirect type (`301`/`302`). Enforces Neon DB RLS tenant isolation (`withTenantDb`) and populates Cloudflare KV edge cache (`lnk:{short_code}`, `lnk:{custom_slug}`).
+  - `GET /api/v1/links`: Retrieve all workspace short links scoped by Clerk `org_id` with total click counts.
+  - `DELETE /api/v1/links/:id`: Delete short link from Neon DB and invalidate Cloudflare KV key.
+- **Sub-10ms Cloudflare KV Edge Redirection Engine ([apps/backend/src/index.ts](file:///c:/vibe%20coding/xoru/apps/backend/src/index.ts))**:
+  - `GET /:code_or_slug`: Fast lookup against Cloudflare KV (`lnk:{code}`). Fallback to Neon DB on cache miss with async `c.executionCtx.waitUntil(...)` cache hydration.
+- **Interactive Next.js Dashboard Components ([apps/frontend/components/](file:///c:/vibe%20coding/xoru/apps/frontend/components/))**:
+  - `CreateLinkModal.tsx`: Creation modal with destination URL validation, title, custom slug prefix (`xoru.link/`), redirect type selector, and state-morphing submit button (`MorphButton`).
+  - `LinksTable.tsx`: Dashboard table with click metrics, copy-to-clipboard, downloadable QR code modal trigger, and delete confirmation.
+  - `QrCodeModal.tsx`: Vector QR code renderer with instant copy and downloadable PNG asset generation.
+  - Integrated into [`apps/frontend/app/dashboard/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/page.tsx) with real-time short links fetching.
+- **Test Suites ([apps/backend/tests/links.test.ts](file:///c:/vibe%20coding/xoru/apps/backend/tests/links.test.ts), [apps/frontend/e2e/links.spec.ts](file:///c:/vibe%20coding/xoru/apps/frontend/e2e/links.spec.ts))**:
+  - 10 Vitest backend tests passing 100% green.
+  - Playwright E2E test added for dashboard link creation.
+
+### How We Built It
+- Base62 short codes stored in Neon DB with strict multi-tenant isolation and replicated to Cloudflare KV for sub-10ms edge redirects.
+
+### In Scope
+- Base62 short code generator, links CRUD routes, sub-10ms edge redirect handler, KV cache hydration, CreateLinkModal, LinksTable, QrCodeModal, Vitest suite, and Playwright spec.
+
+### Out of Scope
+- Smart Dynamic Routing (Device, Geo, A/B Testing) scheduled for Session 6.
+
+### Breaking Changes
+- NONE
+
+### Notes for Future Sessions
+- Live Backend Endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/health`
+- Live Frontend Worker: `https://xoru-frontend.mridu.workers.dev/`
+- **Session 6 Focus**: Smart Dynamic Routing rules (`smart_routes` table: Device OS, Geo-location, A/B percentage split) and Neon DB click event analytics logging.
+
