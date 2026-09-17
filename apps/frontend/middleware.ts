@@ -9,11 +9,25 @@ const isPublicRoute = createRouteMatcher([
   '/health'
 ]);
 
-export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
-    await auth.protect();
+const publishableKey =
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
+  'pk_test_cG9ldGljLXByaW1hdGUtMzI4NC5jbGVyay5hY2NvdW50cy5kZXYk';
+
+const secretKey =
+  process.env.CLERK_SECRET_KEY ||
+  'sk_test_mock_secret_key_for_xoru_development_purposes_only';
+
+export default clerkMiddleware(
+  async (auth, request) => {
+    if (!isPublicRoute(request)) {
+      await auth.protect();
+    }
+  },
+  {
+    publishableKey,
+    secretKey,
   }
-});
+);
 
 export const config = {
   matcher: [
