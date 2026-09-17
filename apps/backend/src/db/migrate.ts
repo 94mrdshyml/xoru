@@ -1,6 +1,11 @@
 import { neon } from '@neondatabase/serverless'
 
 const MIGRATION_QUERIES = [
+  `DROP TABLE IF EXISTS click_events CASCADE;`,
+  `DROP TABLE IF EXISTS retargeting_pixels CASCADE;`,
+  `DROP TABLE IF EXISTS smart_routes CASCADE;`,
+  `DROP TABLE IF EXISTS links CASCADE;`,
+  `DROP TABLE IF EXISTS workspaces CASCADE;`,
   `DROP TABLE IF EXISTS organizations CASCADE;`,
   `CREATE TABLE IF NOT EXISTS workspaces (
       id VARCHAR(64) PRIMARY KEY,
@@ -85,7 +90,7 @@ export async function runDatabaseMigration(databaseUrl: string) {
   const sql = neon(databaseUrl)
   for (const query of MIGRATION_QUERIES) {
     try {
-      await sql(query)
+      await sql([query] as any)
     } catch (err: any) {
       console.warn('Migration step error (ignored):', err?.message || err)
     }
