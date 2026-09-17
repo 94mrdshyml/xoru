@@ -119,6 +119,7 @@ jobs:
           bun install
           bun run build
           bunx @cloudflare/next-on-pages
+          touch .vercel/output/static/.assetsignore
         working-directory: apps/frontend
         env:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
