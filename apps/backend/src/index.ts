@@ -95,6 +95,22 @@ app.post('/api/v1/workspaces/onboard', tenantMiddleware, async (c) => {
 })
 
 import linksApp from './routes/links'
+import { runDatabaseMigration } from './db/migrate'
+
+// Database Migration Endpoint (Admin/Auto)
+app.post('/api/v1/admin/migrate', async (c) => {
+  const dbUrl = c.env?.NEON_DATABASE_URL
+  if (!dbUrl) {
+    return c.json({ error: { code: 'MISSING_DB_URL', message: 'NEON_DATABASE_URL environment variable is missing.' } }, 500)
+  }
+
+  try {
+    await runDatabaseMigration(dbUrl)
+    return c.json({ status: 'success', message: 'Database schema and Neon RLS policies applied successfully.' })
+  } catch (err: any) {
+    return c.json({ error: { code: 'MIGRATION_FAILED', message: err.message || 'Migration failed.' } }, 500)
+  }
+})
 
 // Mount Short Link CRUD Router
 app.route('/api/v1/links', linksApp)
