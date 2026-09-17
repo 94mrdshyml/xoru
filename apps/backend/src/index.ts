@@ -20,8 +20,7 @@ app.use('*', cors({
   allowHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Id'],
 }))
 
-// Health check endpoint
-app.get('/api/v1/health', (c) => {
+const healthHandler = (c: any) => {
   return c.json({
     status: 'healthy',
     service: 'xoru-backend',
@@ -29,7 +28,11 @@ app.get('/api/v1/health', (c) => {
     version: '0.1.0',
     framework: 'Hono.js (TypeScript)',
   })
-})
+}
+
+// Health check endpoints (both root / and /api/v1/health)
+app.get('/', healthHandler)
+app.get('/api/v1/health', healthHandler)
 
 // Authenticated user context endpoint
 app.get('/api/v1/auth/me', tenantMiddleware, (c) => {

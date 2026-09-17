@@ -2,6 +2,17 @@ import { describe, it, expect } from 'vitest'
 import app from '../src/index'
 
 describe('Backend API Routes', () => {
+  it('GET / returns 200 and healthy status', async () => {
+    const res = await app.request('/')
+    expect(res.status).toBe(200)
+
+    const data = await res.json()
+    expect(data).toMatchObject({
+      status: 'healthy',
+      service: 'xoru-backend',
+    })
+  })
+
   it('GET /api/v1/health returns 200 and healthy status', async () => {
     const res = await app.request('/api/v1/health')
     expect(res.status).toBe(200)
