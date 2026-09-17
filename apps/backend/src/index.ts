@@ -57,48 +57,54 @@ app.get('/api/v1/auth/me', tenantMiddleware, (c) => {
 app.post('/api/v1/workspaces/onboard', tenantMiddleware, async (c) => {
   const tenant = c.get('tenant')
   const body = await c.req.json<{
-    first_name: string
+    first_name?: string
     last_name?: string
-    email: string
-    workspace_name: string
-  }>()
+    email?: string
+    workspace_name?: string
+  }>().catch(() => ({} as any))
 
-  if (!body.first_name || !body.workspace_name) {
-    return c.json(
-      { error: { code: 'INVALID_INPUT', message: 'first_name and workspace_name are required.' } },
-      400
-    )
-  }
+  const firstName = body.first_name || 'User'
+  const workspaceName = body.workspace_name || `${firstName}'s Workspace`
 
   const orgId = tenant.tenant_id
-  const orgName = `${body.first_name}'s Organization`
-  const orgSlug = `org-${body.first_name.toLowerCase()}-${generateId('org').slice(4, 10)}`
+  const cleanId = orgId.replace(/^(org_|usr_|user_)/, '')
+  const orgName = `${firstName}'s Organization`
+  const orgSlug = `org-${cleanId}`
 
-  const workspaceId = generateId('wrk')
-  const slugBase = body.first_name.toLowerCase().replace(/\s+/g, '-')
-  const workspaceSlug = `${slugBase}-workspace-${workspaceId.slice(4, 10)}`
+  // Derive distinct wrk_ prefixed workspace ID (never identical to orgId)
+  const workspaceId = `wrk_${cleanId}`
+  const workspaceSlug = `wrk-${cleanId}-default`
 
   const dbUrl = c.env?.NEON_DATABASE_URL
   if (dbUrl) {
-    await withTenantDb(dbUrl, orgId, async (sql) => {
-      // 1. Provision Organization
-      await sql`
-        INSERT INTO organizations (id, name, slug)
-        VALUES (${orgId}, ${orgName}, ${orgSlug})
-        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
-      `
-      // 2. Provision Default Workspace under Organization
-      await sql`
-        INSERT INTO workspaces (id, org_id, name, slug)
-        VALUES (${workspaceId}, ${orgId}, ${body.workspace_name}, ${workspaceSlug})
-      `
-    })
+    try {
+      await withTenantDb(dbUrl, orgId, async (sql) => {
+        // 1. Provision Organization atomically
+        await sql`
+          INSERT INTO organizations (id, name, slug)
+          VALUES (${orgId}, ${orgName}, ${orgSlug})
+          ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+        `
+        // 2. Provision Default Workspace under Organization
+        await sql`
+          INSERT INTO workspaces (id, org_id, name, slug)
+          VALUES (${workspaceId}, ${orgId}, ${workspaceName}, ${workspaceSlug})
+          ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+        `
+      })
+    } catch (err: any) {
+      console.error('Workspaces onboard DB error:', err)
+      return c.json(
+        { error: { code: 'DB_ERROR', message: err.message || String(err) } },
+        500
+      )
+    }
   }
 
   return c.json({
     id: workspaceId,
     org_id: orgId,
-    name: body.workspace_name,
+    name: workspaceName,
     slug: workspaceSlug,
   }, 201)
 })
