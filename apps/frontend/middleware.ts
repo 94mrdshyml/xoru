@@ -1,3 +1,5 @@
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
 // Public routes that do not require authentication
@@ -6,7 +8,7 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/api/public(.*)',
-  '/health'
+  '/health',
 ]);
 
 const publishableKey =
@@ -17,7 +19,7 @@ const secretKey =
   process.env.CLERK_SECRET_KEY ||
   'sk_test_mock_secret_key_for_xoru_development_purposes_only';
 
-export default clerkMiddleware(
+const handleClerk = clerkMiddleware(
   async (auth, request) => {
     if (!isPublicRoute(request)) {
       await auth.protect();
@@ -28,6 +30,15 @@ export default clerkMiddleware(
     secretKey,
   }
 );
+
+export default async function middleware(request: NextRequest, event: any) {
+  try {
+    return await handleClerk(request, event);
+  } catch (error) {
+    console.error('Clerk middleware error on edge:', error);
+    return NextResponse.next();
+  }
+}
 
 export const config = {
   matcher: [

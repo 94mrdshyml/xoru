@@ -11,6 +11,7 @@ const openSans = Open_Sans({
 });
 
 export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Xoru — Short Link. Real Intelligence.',
