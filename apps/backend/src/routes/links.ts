@@ -46,6 +46,14 @@ linksApp.post('/', async (c) => {
 
   const orgId = tenant.tenant_id
   const userId = tenant.user_id
+
+  // Derive distinct workspace_id prefixed with wrk_ (never identical to orgId)
+  let effectiveWorkspaceId = body.workspace_id
+  if (!effectiveWorkspaceId || effectiveWorkspaceId.startsWith('org_') || effectiveWorkspaceId === 'wrk_default') {
+    const cleanTenantId = orgId.replace(/^(org_|usr_|user_)/, '')
+    effectiveWorkspaceId = `wrk_${cleanTenantId}`
+  }
+
   const linkId = generateId('lnk')
   const shortCode = generateShortCode(7)
   const customSlug = body.custom_slug ? body.custom_slug.trim().toLowerCase() : null
@@ -62,20 +70,21 @@ linksApp.post('/', async (c) => {
   if (dbUrl) {
     try {
       await withTenantDb(dbUrl, orgId, async (sql) => {
-        // 1. Provision Org & Workspace atomically with slug = id to prevent unique constraint collisions
+        // 1. Provision Org atomically
         await sql`
           INSERT INTO organizations (id, name, slug)
           VALUES (${orgId}, ${'Organization ' + orgId}, ${orgId})
           ON CONFLICT (id) DO UPDATE SET updated_at = NOW()
         `
 
+        // 2. Provision Workspace with distinct wrk_ ID under Org
         await sql`
           INSERT INTO workspaces (id, org_id, name, slug)
-          VALUES (${body.workspace_id}, ${orgId}, ${'Default Workspace'}, ${body.workspace_id})
+          VALUES (${effectiveWorkspaceId}, ${orgId}, ${'Default Workspace'}, ${effectiveWorkspaceId})
           ON CONFLICT (id) DO UPDATE SET updated_at = NOW()
         `
 
-        // 2. Check custom slug collision if provided
+        // 3. Check custom slug collision if provided
         if (customSlug) {
           const existingSlug = await sql`
             SELECT id FROM links WHERE custom_slug = ${customSlug} LIMIT 1
@@ -85,13 +94,13 @@ linksApp.post('/', async (c) => {
           }
         }
 
-        // 3. Insert Short Link
+        // 4. Insert Short Link with distinct workspace_id
         await sql`
           INSERT INTO links (
             id, org_id, workspace_id, title, destination_url,
             short_code, custom_slug, redirect_type, created_by, expires_at
           ) VALUES (
-            ${linkId}, ${orgId}, ${body.workspace_id}, ${body.title}, ${body.destination_url},
+            ${linkId}, ${orgId}, ${effectiveWorkspaceId}, ${body.title}, ${body.destination_url},
             ${shortCode}, ${customSlug}, ${redirectType}, ${userId}, ${body.expires_at || null}
           )
         `
@@ -122,7 +131,7 @@ linksApp.post('/', async (c) => {
   const createdLink = {
     id: linkId,
     org_id: orgId,
-    workspace_id: body.workspace_id,
+    workspace_id: effectiveWorkspaceId,
     title: body.title,
     destination_url: body.destination_url,
     short_code: shortCode,

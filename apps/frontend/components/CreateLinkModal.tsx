@@ -58,7 +58,11 @@ export function CreateLinkModal({
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const activeWorkspaceId = workspaceId || orgId || userId || 'wrk_default';
+      const cleanId = (orgId || userId || 'default').replace(/^(org_|usr_|user_)/, '');
+      const activeWorkspaceId =
+        workspaceId && workspaceId.startsWith('wrk_') && workspaceId !== orgId
+          ? workspaceId
+          : `wrk_${cleanId}`;
 
       const res = await fetch(`${backendUrl}/api/v1/links`, {
         method: 'POST',

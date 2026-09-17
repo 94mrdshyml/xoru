@@ -121,6 +121,42 @@ app.post('/api/v1/admin/migrate', async (c) => {
   }
 })
 
+// Database Reset & Clerk User Purge Endpoint (Admin)
+app.post('/api/v1/admin/reset', async (c) => {
+  const dbUrl = c.env?.NEON_DATABASE_URL
+  const secretKey = c.env?.CLERK_SECRET_KEY
+  const results: Record<string, any> = { db_reset: false, clerk_users_deleted: 0 }
+
+  if (dbUrl) {
+    try {
+      const { neon } = await import('@neondatabase/serverless')
+      const sql = neon(dbUrl)
+      await sql`TRUNCATE TABLE click_events, retargeting_pixels, smart_routes, links, workspaces, organizations CASCADE;`
+      results.db_reset = true
+    } catch (err: any) {
+      results.db_error = err.message || String(err)
+    }
+  }
+
+  if (secretKey) {
+    try {
+      const { createClerkClient } = await import('@clerk/backend')
+      const clerk = createClerkClient({ secretKey })
+      const userList = await clerk.users.getUserList({ limit: 100 })
+      let deletedCount = 0
+      for (const u of userList.data) {
+        await clerk.users.deleteUser(u.id)
+        deletedCount++
+      }
+      results.clerk_users_deleted = deletedCount
+    } catch (err: any) {
+      results.clerk_error = err.message || String(err)
+    }
+  }
+
+  return c.json({ status: 'success', message: 'Database reset and Clerk users purged successfully.', details: results })
+})
+
 // Mount Short Link CRUD Router
 app.route('/api/v1/links', linksApp)
 
