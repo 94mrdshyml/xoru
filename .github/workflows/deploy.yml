@@ -117,8 +117,9 @@ jobs:
       - name: Install Dependencies & Build with next-on-pages
         run: |
           bun install
-          bun --cwd apps/frontend run build
-          bun --cwd apps/frontend x @cloudflare/next-on-pages
+          bun run build
+          bunx @cloudflare/next-on-pages
+        working-directory: apps/frontend
         env:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
