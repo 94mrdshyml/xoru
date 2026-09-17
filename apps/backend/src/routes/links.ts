@@ -62,16 +62,33 @@ linksApp.post('/', async (c) => {
   if (dbUrl) {
     try {
       await withTenantDb(dbUrl, orgId, async (sql) => {
-        // Check custom slug collision if provided
+        // 1. Provision Org & Workspace if missing to satisfy Foreign Key constraints
+        const orgSlug = `org-${orgId.slice(-12).replace(/[^a-z0-9]/gi, '').toLowerCase()}`
+        const wrkSlug = `wrk-${body.workspace_id.slice(-12).replace(/[^a-z0-9]/gi, '').toLowerCase()}`
+
+        await sql`
+          INSERT INTO organizations (id, name, slug)
+          VALUES (${orgId}, ${'Organization ' + orgId}, ${orgSlug})
+          ON CONFLICT (id) DO NOTHING
+        `
+
+        await sql`
+          INSERT INTO workspaces (id, org_id, name, slug)
+          VALUES (${body.workspace_id}, ${orgId}, ${'Default Workspace'}, ${wrkSlug})
+          ON CONFLICT (id) DO NOTHING
+        `
+
+        // 2. Check custom slug collision if provided
         if (customSlug) {
           const existingSlug = await sql`
             SELECT id FROM links WHERE custom_slug = ${customSlug} LIMIT 1
           `
-          if (existingSlug.length > 0) {
+          if (existingSlug && existingSlug.length > 0) {
             throw new Error('CUSTOM_SLUG_EXISTS')
           }
         }
 
+        // 3. Insert Link
         await sql`
           INSERT INTO links (
             id, org_id, workspace_id, title, destination_url,
@@ -210,4 +227,3 @@ linksApp.delete('/:id', async (c) => {
 })
 
 export default linksApp
-
