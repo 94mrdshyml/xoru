@@ -6,7 +6,13 @@ import { Link2, ArrowRight, Zap, Shield, Sparkles } from 'lucide-react';
 export const runtime = 'edge';
 
 export default async function HomePage() {
-  const { userId } = await auth();
+  let userId: string | null = null;
+  try {
+    const authData = await auth();
+    userId = authData.userId;
+  } catch {
+    // Public landing page fallback if auth context is not yet populated
+  }
 
   // If user is already authenticated, redirect to dashboard
   if (userId) {
