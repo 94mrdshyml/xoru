@@ -6,15 +6,7 @@ async function migrate() {
   console.log('Starting explicit Neon database migration...')
   const sql = neon(databaseUrl)
 
-  console.log('1. Dropping legacy tables...')
-  await sql`DROP TABLE IF EXISTS click_events CASCADE;`
-  await sql`DROP TABLE IF EXISTS retargeting_pixels CASCADE;`
-  await sql`DROP TABLE IF EXISTS smart_routes CASCADE;`
-  await sql`DROP TABLE IF EXISTS links CASCADE;`
-  await sql`DROP TABLE IF EXISTS workspaces CASCADE;`
-  await sql`DROP TABLE IF EXISTS organizations CASCADE;`
-
-  console.log('2. Creating workspaces table with user_id...')
+  console.log('1. Creating workspaces table with user_id...')
   await sql`
     CREATE TABLE workspaces (
       id VARCHAR(64) PRIMARY KEY,

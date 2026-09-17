@@ -1,12 +1,6 @@
 import { neon } from '@neondatabase/serverless'
 
 const MIGRATION_QUERIES = [
-  `DROP TABLE IF EXISTS click_events CASCADE;`,
-  `DROP TABLE IF EXISTS retargeting_pixels CASCADE;`,
-  `DROP TABLE IF EXISTS smart_routes CASCADE;`,
-  `DROP TABLE IF EXISTS links CASCADE;`,
-  `DROP TABLE IF EXISTS workspaces CASCADE;`,
-  `DROP TABLE IF EXISTS organizations CASCADE;`,
   `CREATE TABLE IF NOT EXISTS workspaces (
       id VARCHAR(64) PRIMARY KEY,
       user_id VARCHAR(64) NOT NULL,
