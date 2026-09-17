@@ -140,8 +140,8 @@ Xoru is a **multi-tenant SaaS platform** isolated via **Clerk Auth** and **Neon 
 
 ## Tech Stack & Architecture
 
-- **Frontend Worker (`apps/frontend`)**: Next.js App Router deployed on Cloudflare Workers (`xoru-frontend`).
-- **Backend Worker (`apps/backend`)**: Python (FastAPI / Workers Python runtime) deployed on Cloudflare Workers (`xoru-backend`).
+- **Frontend Worker (`apps/frontend`)**: Next.js App Router compiled with `@opennextjs/cloudflare` and deployed on Cloudflare Workers (`xoru-frontend`).
+- **Backend Worker (`apps/backend`)**: Hono.js (TypeScript) deployed on Cloudflare Workers (`xoru-backend`).
 - **Database (`packages/db`)**: Neon Serverless Postgres DB managed with Alembic & Row-Level Security (RLS).
 - **Authentication**: Clerk (Social login, email/magic link, Organization context).
 - **Edge Cache & Redirection**: Cloudflare KV for sub-10ms short link lookups.
