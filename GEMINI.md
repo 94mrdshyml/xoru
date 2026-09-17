@@ -1,12 +1,12 @@
 ## Project Configuration
 
-- **Languages**: TypeScript (Frontend), Python (Backend)
+- **Languages**: TypeScript (Frontend & Backend - Hono.js)
 - **Package Manager**: bun
 - **Compute**: Cloudflare Workers (`xoru-frontend` and `xoru-backend`)
-- **Database**: Neon Serverless Postgres DB (with Alembic migrations & Row-Level Security)
+- **Database**: Neon Serverless Postgres DB (with Row-Level Security)
 - **Auth**: Clerk (Multi-Tenant Organization ID mapped to `tenant_id`)
 - **Cache & KV**: Cloudflare KV (sub-10ms global edge redirects)
-- **Testing**: Pytest (backend), Vitest & React Testing Library (frontend)
+- **Testing**: Vitest (frontend & backend), Playwright (E2E)
 - **Brand & UI**: Indigo primary color (`#4F46E5`), Open Sans font, Anti-Slop UI Framework (Taste Skill + Impeccable)
 
 ---

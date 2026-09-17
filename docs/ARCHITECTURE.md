@@ -14,7 +14,7 @@ flowchart TD
     DashboardUser[Dashboard User / Admin] -->|2. Web App Requests| CF_Edge
 
     subgraph Cloudflare Infrastructure
-        CF_Edge -->|Short Link Lookup| Worker_BE["xoru-backend (Python Worker)"]
+        CF_Edge -->|Short Link Lookup| Worker_BE["xoru-backend (Hono.js Worker)"]
         CF_Edge -->|Next.js App Router| Worker_FE["xoru-frontend (Next.js Worker)"]
         
         Worker_BE <-->|Sub-10ms Lookup / Sync| CF_KV[(Cloudflare KV Cache)]
@@ -47,7 +47,7 @@ flowchart TD
 - **Authentication**: Integrates `@clerk/nextjs` for session management and Organization switching.
 
 ### B. Backend Worker (`apps/backend`)
-- **Framework**: Python Worker (FastAPI / Workers Python runtime via Pyodide).
+- **Framework**: Hono.js TypeScript Worker deployed on Cloudflare Workers (`xoru-backend`).
 - **Role**: Handles short link redirection, dynamic routing rules evaluation (Device / Geo / A/B split), link CRUD operations, and click event tracking.
 - **Edge Cache Invalidation**: Writing or updating a link writes to Neon DB and immediately updates Cloudflare KV.
 

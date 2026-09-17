@@ -1,8 +1,0 @@
-fastapi
-pydantic
-sqlalchemy
-asyncpg
-pyjwt
-httpx
-pytest
-pytest-asyncio

@@ -22,21 +22,17 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install Node & Python Dependencies
-        run: |
-          bun install
-          pip install -r apps/backend/requirements-dev.txt
+      - name: Install Dependencies
+        run: bun install
 
       - name: Frontend Typecheck
         run: bun --cwd apps/frontend run typecheck
 
-      - name: Backend Pytest Unit Tests
-        run: python -m pytest
+      - name: Backend Typecheck
+        run: bun --cwd apps/backend run typecheck
+
+      - name: Backend Vitest Unit Tests
+        run: bun --cwd apps/backend run test
 
       - name: Frontend Build Verification
         run: bun --cwd apps/frontend run build
@@ -94,15 +90,8 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
       - name: Install Dependencies
-        run: |
-          bun install
-          pip install -r apps/backend/requirements-dev.txt
+        run: bun install
 
       - name: Deploy Backend Worker to Cloudflare
         run: bunx wrangler deploy
