@@ -29,21 +29,26 @@ export default function OnboardingPage() {
         const email = user?.emailAddresses[0]?.emailAddress || '';
         const token = await getToken();
 
-        const res = await fetch('/api/auth/onboarding', {
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev';
+
+        const res = await fetch(`${backendUrl}/api/v1/workspaces/onboard`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            firstName,
-            lastName,
-            email,
+            first_name: firstName,
+            last_name: lastName,
+            email: email,
+            workspace_name: `${firstName}'s Workspace`,
           }),
         });
 
         if (!res.ok) {
-          throw new Error('Failed to provision workspace.');
+          const errData = await res.json().catch(() => ({}));
+          console.error('Backend onboarding failed:', errData);
+          throw new Error(errData?.error?.message || 'Failed to provision workspace.');
         }
 
         if (isMounted) {
