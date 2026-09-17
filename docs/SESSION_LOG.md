@@ -58,6 +58,41 @@ This log tracks feature additions, technical decisions, architectural changes, a
 ### Breaking Changes
 - NONE
 
+---
+
+## Session 3 — Hono.js TypeScript Backend Migration & Automated CI/CD Deployment
+
+**Date & Time (IST):** 2026-09-17 12:25 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **Backend Migration to Hono.js TypeScript**:
+  - Fully replaced Python/FastAPI/Pyodide with native V8 TypeScript Hono framework in `apps/backend`.
+  - Implemented `@clerk/backend` JWT tenant authentication middleware ([`apps/backend/src/middleware/auth.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/middleware/auth.ts)) supporting `X-Tenant-Id` headers in dev/testing mode.
+  - Implemented Neon DB RLS client helper ([`apps/backend/src/db/client.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/db/client.ts)) for transaction-level tenant isolation.
+  - Implemented Stripe-style prefixed nanoid generator ([`apps/backend/src/utils/id.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/utils/id.ts)).
+  - Implemented Vitest unit test suite ([`apps/backend/tests/health.test.ts`](file:///c:/vibe%20coding/xoru/apps/backend/tests/health.test.ts)) passing in 150ms.
+- **Full CI/CD Pipeline Automation ([.github/workflows/deploy.yml](file:///c:/vibe%20coding/xoru/.github/workflows/deploy.yml))**:
+  - Job 1 (`Unit Tests & Typecheck`): Passed green in **7s**.
+  - Job 2 (`Playwright E2E Tests`): Passed green in **52s**.
+  - Job 3 (`Deploy Backend Worker`): Live Cloudflare Worker deployment of `xoru-backend` in **12s**.
+  - Job 4 (`Deploy Frontend`): Cloudflare Pages build (`next-on-pages`) and deployment of `xoru-frontend` in **1m 23s**.
+- **Frontend Cloudflare Pages Edge Configuration**: Added `export const runtime = 'edge'` across all App Router pages and API routes.
+
+### How We Built It
+- Native Cloudflare Worker V8 execution with zero Pyodide/Wasm overhead, enabling instant deployments and sub-1ms edge performance.
+
+### In Scope
+- Hono.js TypeScript backend conversion, Vitest test suite, Next.js Edge Runtime configuration, and automated GitHub Actions CI/CD deployment pipeline for both frontend and backend.
+
+### Out of Scope
+- Link CRUD operations & base62 short link generator UI (scheduled for Session 4).
+
+### Breaking Changes
+- `apps/backend` relies on Bun & TypeScript instead of Python.
+
 ### Notes for Future Sessions
-- **Session 3 Focus**: Build the core link shortening engine, base62 unique code generator, custom slug validation, Cloudflare KV edge cache synchronization, and link CRUD API endpoints (`POST /api/v1/links`, `GET /api/v1/links`, `PATCH /api/v1/links/{id}`).
-- Links and smart routes must reference both `org_id` and `workspace_id`.
+- `xoru-backend` live production endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/health`
+- `xoru-frontend` live production URL: `https://xoru-frontend.pages.dev`
+- **Session 4 Focus**: Link CRUD endpoints (`POST /api/v1/links`, `GET /api/v1/links`), base62 short link generation, Cloudflare KV cache invalidation, and interactive Link Creation modal in Next.js dashboard.
