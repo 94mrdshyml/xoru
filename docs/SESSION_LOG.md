@@ -518,16 +518,47 @@ This log tracks feature additions, technical decisions, architectural changes, a
 ### Breaking Changes
 - NONE
 
+---
+
+## Session 14 — Link Security, Expiration, Burn Links & Zero-Downtime Safe Schema Migration
+
+**Date & Time (IST):** 2026-09-17 22:45 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **Database Restoration & Zero-Destructive Migration Safety**:
+  - Restored Neon DB `production` branch to `2026-09-17T16:25:00Z` via `neonctl` PITR to recover workspace and link entities.
+  - Refactored [`apps/backend/src/db/migrate.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/db/migrate.ts) to use native tagged template literals (`await sql\`ALTER TABLE links ADD COLUMN IF NOT EXISTS ...\``) and permanently banned all destructive `DROP TABLE` executions.
+  - Executed live additive migration on Neon DB with zero data loss (`status: success`).
+- **Security & Link Expiration Expansion**:
+  - **Password Protection**: Salted SHA-256 WebCrypto hashing ([`apps/backend/src/utils/crypto.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/utils/crypto.ts)), edge password challenge UI with client verification (`POST /:code/verify`).
+  - **One-Time Self-Destructing Links**: Atomic consumption on redirect (`is_consumed`, `consumed_at`) with 410 Burned landing screen.
+  - **Link Expiration**: Scheduled expiration timestamp (`expires_at`) with 410 Expired edge error screen.
+  - **Link Descriptions**: Added internal metadata notes field across DB, API, and UI.
+- **Frontend Expansion ([`apps/frontend/components/CreateLinkModal.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/CreateLinkModal.tsx), [`apps/frontend/components/LinksTable.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/LinksTable.tsx))**:
+  - Expanded modal with collapsible accordion for Password Protection, Expiry Date/Time, and One-Time Burn link toggles.
+  - Visual status badges for Password Protected, One-Time, Burned, and Expiration dates.
+- **CI/CD Deployment**:
+  - GitHub Actions run completed with 100% green build, typecheck, lint, test, and Cloudflare Worker deployments.
+
+### How We Built It
+- WebCrypto API for zero-dependency edge password hashing and verification.
+- Additive SQL schema migration (`ALTER TABLE ADD COLUMN IF NOT EXISTS`) executed safely against Neon Postgres without dropping tables.
+- Edge-rendered clean HTML challenge and error states for expired/burned links.
+
+### In Scope
+- Neon DB restoration, additive schema migration, password hashing, one-time burn logic, link expiration check, expanded modal UI, and links table badges.
+
+### Out of Scope
+- Dynamic smart routing execution (Geo/Device/AB) and click event telemetry ingestion (Session 15).
+
+### Breaking Changes
+- NONE
+
 ### Notes for Future Sessions
-- Live Backend Endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/health`
-- Live Frontend Dashboard: `https://xoru-frontend.mridu.workers.dev/dashboard`
-- **Session 14 Focus**: Wire backend Hono routes for `smart_routes` evaluation and `click_events` analytics ingestion into Neon DB.
-
-
-
-
-
-
-
-
+- Live Backend: `https://xoru-backend.mridu.workers.dev`
+- Live Frontend: `https://xoru-frontend.mridu.workers.dev`
+- Neon DB Branch: `production` (`br-falling-shape-b42bib7p`), Project: `blue-grass-58298152`
+- All schema updates must remain strictly additive. Never execute `DROP TABLE`.
 
