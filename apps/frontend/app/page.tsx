@@ -1,24 +1,7 @@
 import Link from 'next/link';
-import { auth } from '@clerk/nextjs/server';
-import { redirect } from 'next/navigation';
 import { Link2, ArrowRight, Zap, Shield, Sparkles } from 'lucide-react';
 
-export const runtime = 'edge';
-
-export default async function HomePage() {
-  let userId: string | null = null;
-  try {
-    const authData = await auth();
-    userId = authData.userId;
-  } catch {
-    // Public landing page fallback if auth context is not yet populated
-  }
-
-  // If user is already authenticated, redirect to dashboard
-  if (userId) {
-    redirect('/dashboard');
-  }
-
+export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       {/* Navbar */}
@@ -99,4 +82,3 @@ export default async function HomePage() {
     </div>
   );
 }
-

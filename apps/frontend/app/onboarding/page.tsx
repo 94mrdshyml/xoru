@@ -5,11 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Link2, Loader2, CheckCircle2 } from 'lucide-react';
 
-export const runtime = 'edge';
-
 export default function OnboardingPage() {
   const { user, isLoaded: isUserLoaded } = useUser();
-  const { isLoaded: isAuthLoaded } = useAuth();
+  const { getToken, isLoaded: isAuthLoaded } = useAuth();
   const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
@@ -29,11 +27,13 @@ export default function OnboardingPage() {
         const firstName = user?.firstName || 'User';
         const lastName = user?.lastName || '';
         const email = user?.emailAddresses[0]?.emailAddress || '';
+        const token = await getToken();
 
         const res = await fetch('/api/auth/onboarding', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             firstName,

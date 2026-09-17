@@ -1,21 +1,27 @@
-import { UserButton, OrganizationSwitcher } from '@clerk/nextjs';
-import { currentUser } from '@clerk/nextjs/server';
-import { redirect } from 'next/navigation';
+'use client';
+
+import { UserButton, OrganizationSwitcher, useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { Link2, Plus, BarChart3, Settings, ShieldCheck } from 'lucide-react';
 import { MorphButton } from '@/components/ui/MorphButton';
 
-export const runtime = 'edge';
+export default function DashboardPage() {
+  const { isLoaded, isSignedIn, user } = useUser();
+  const router = useRouter();
 
-export default async function DashboardPage() {
-  let user = null;
-  try {
-    user = await currentUser();
-  } catch {
-    // If auth state or key is uninitialized, redirect to sign-in
-  }
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push('/sign-in');
+    }
+  }, [isLoaded, isSignedIn, router]);
 
-  if (!user) {
-    redirect('/sign-in');
+  if (!isLoaded || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+      </div>
+    );
   }
 
   const firstName = user.firstName || 'User';
@@ -113,4 +119,3 @@ export default async function DashboardPage() {
     </div>
   );
 }
-
