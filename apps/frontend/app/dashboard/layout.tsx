@@ -8,26 +8,30 @@ import { Header } from '@/components/dashboard/Header';
 import { CreateLinkModal } from '@/components/CreateLinkModal';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { isLoaded, isSignedIn, orgId, userId } = useAuth();
+  const [hasMounted, setHasMounted] = useState(false);
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
 
   useEffect(() => {
-    if (isLoaded && !isSignedIn) {
+    setHasMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (hasMounted && isLoaded && !isSignedIn) {
       router.push('/sign-in');
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [hasMounted, isLoaded, isSignedIn, router]);
 
-  if (!isLoaded || !isSignedIn) {
+  if (!hasMounted || !isLoaded || !isSignedIn) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
       </div>
     );
   }
-
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
 
   return (
     <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 antialiased">

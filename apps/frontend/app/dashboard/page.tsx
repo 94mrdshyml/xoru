@@ -38,15 +38,21 @@ export default function DashboardPage() {
     }
   }, [getToken]);
 
+  const [hasMounted, setHasMounted] = useState(false);
+
   useEffect(() => {
-    if (isUserLoaded && isAuthLoaded) {
+    setHasMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (hasMounted && isUserLoaded && isAuthLoaded) {
       if (!isSignedIn) {
         router.push('/sign-in');
       } else {
         fetchLinks();
       }
     }
-  }, [isUserLoaded, isAuthLoaded, isSignedIn, router, fetchLinks]);
+  }, [hasMounted, isUserLoaded, isAuthLoaded, isSignedIn, router, fetchLinks]);
 
   useEffect(() => {
     const handleGlobalCreate = () => fetchLinks();
@@ -54,7 +60,7 @@ export default function DashboardPage() {
     return () => window.removeEventListener('linkCreated', handleGlobalCreate);
   }, [fetchLinks]);
 
-  if (!isUserLoaded || !isAuthLoaded || !user) {
+  if (!hasMounted || !isUserLoaded || !isAuthLoaded || !user) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-6 w-6 animate-spin rounded-full border-3 border-indigo-600 border-t-transparent" />
