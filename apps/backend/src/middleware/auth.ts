@@ -22,7 +22,9 @@ function parseJwtPayload(token: string): any {
     while (base64.length % 4 !== 0) {
       base64 += '='
     }
-    const jsonString = Buffer.from(base64, 'base64').toString('utf-8')
+    const jsonString = typeof atob === 'function'
+      ? atob(base64)
+      : Buffer.from(base64, 'base64').toString('utf-8')
     return JSON.parse(jsonString)
   } catch {
     return null
