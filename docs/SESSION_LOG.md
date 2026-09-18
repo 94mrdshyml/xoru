@@ -727,9 +727,67 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - Live Frontend: `https://xoru-frontend.mridu.workers.dev`
 - Tracker Script URL: `https://xoru-backend.mridu.workers.dev/x.js`
 - Email Pixel URL: `https://xoru-backend.mridu.workers.dev/p/:pixel_id.gif`
-- Collector Endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/pixels/track`
-- **Session 18 Focus**: Dynamic Smart Routing rules engine (`smart_routes` table: Device OS, Geo ISO Country Code, A/B Traffic Split) and connecting `/dashboard/routes` UI to backend CRUD.
+---
 
+## Session 18 — Developer API Keys, Rate Limiting, Usage-Based Billing & Request-Response Audit Logging
 
+**Date & Time (IST):** 2026-09-18 13:00 IST  
+**Status:** Completed  
+**Branch:** `main`  
 
+### What We Built
+- **Developer API Key Management & Infrastructure ([`apps/backend/src/routes/api-keys.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/routes/api-keys.ts))**:
+  - Secure Stripe-style API key generation (`key_live_{32-char}` and `key_test_{32-char}`) using cryptographically secure random alphanumeric tokens.
+  - Deterministic SHA-256 WebCrypto one-way hashing (`hashApiKey`); raw secret keys are NEVER stored in the database and only shown once to the user upon provisioning.
+  - Sub-10ms Cloudflare KV edge cache (`apk:{key_hash}`) for instant, zero-DB edge auth validation.
+  - Scoped key CRUD endpoints:
+    - `GET /api/v1/api-keys`: Lists all active keys for the workspace with masked prefixes (`key_live_••••9a8f`), environment indicators, and quota counters.
+    - `POST /api/v1/api-keys`: Provisions a new key with custom rate limits and monthly quotas, returning the raw secret token once.
+    - `PATCH /api/v1/api-keys/:id`: Updates key label, rate limit per minute, monthly quota, or active state.
+    - `DELETE /api/v1/api-keys/:id`: Revokes/deletes key and purges from Cloudflare KV cache immediately.
+- **Universal Auth Middleware with Rate Limiting & Audit Logging ([`apps/backend/src/middleware/auth.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/middleware/auth.ts))**:
+  - Seamlessly accepts either Clerk Bearer JWT tokens (`Authorization: Bearer <clerk_jwt>`) or Developer API Keys (`Authorization: Bearer key_live_...` or `X-API-Key: key_...`).
+  - **Rate Limiting Engine**: Enforces per-key sliding window rate limits (e.g. 60 req/min) using Cloudflare KV counters. Returns RFC-compliant `429 Too Many Requests` with `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and `Retry-After` headers.
+  - **Usage-Based Billing Quota**: Enforces monthly request limits, rejecting requests when monthly quota is exceeded.
+  - **Non-Blocking Request/Response Audit Logger**:
+    - Captures high-resolution execution stopwatch (`performance.now()`), HTTP method, request path, request headers, request payload body, HTTP status code, response body, latency in milliseconds, and GDPR-compliant hashed client IP.
+    - Persists audit logs asynchronously to `api_call_logs` via `c.executionCtx.waitUntil(...)` with **0ms added response latency**.
+- **Additive Database Schema Migration ([`packages/db/schema.sql`](file:///c:/vibe%20coding/xoru/packages/db/schema.sql), [`apps/backend/src/db/migrate.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/db/migrate.ts))**:
+  - Added `api_keys` table with `user_id`, `workspace_id`, `name`, `key_prefix`, `key_hash`, `environment`, `monthly_limit`, `requests_count`, `billing_cycle_start`, `rate_limit_per_minute`, `is_active`, `last_used_at`, and `expires_at`.
+  - Added `api_call_logs` table with `key_id`, `user_id`, `workspace_id`, `http_method`, `endpoint`, `status_code`, `response_time_ms`, `request_headers`, `request_body`, `response_body`, `error_message`, `ip_hash`, and `user_agent`.
+  - Added multi-tenant Neon Row-Level Security (RLS) policies and performance indexes.
+- **Developer Settings & API Inspector Dashboard ([`apps/frontend/app/dashboard/settings/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/settings/page.tsx))**:
+  - **Usage Billing & Quota Progress Meter**: Real-time progress bar showing monthly request consumption, quota percentage, and days until billing cycle reset.
+  - **Provisioned API Keys Table**: List of active workspace keys, masked prefixes, environment tags (`Live` / `Test`), rate limits, usage metrics, and copy/delete actions.
+  - **Generate API Key Modal**: Configurable key creation modal with environment selector, custom rate limit presets (30, 60, 120, 300 req/min), and monthly quota presets (1,000, 10,000, 50,000, Unlimited).
+  - **One-Time Secret Reveal Modal**: Safe, high-contrast modal presenting the raw key with 1-click copy before permanent masking.
+  - **Live Request & Response Audit Log Inspector**:
+    - Interactive audit table showing timestamp, HTTP method pill, endpoint path, status code badge (200 OK / 429 Too Many Requests / 401 / 500), latency in ms, and IP hash.
+    - Expandable inspection drawer rendering syntax-highlighted formatted JSON for both request payload and response body.
+  - **Multi-Language Quickstart Code Snippets**: Pre-configured tabs for cURL, TypeScript/Fetch, and Python Requests.
+- **Unit & Integration Test Suite ([`apps/backend/tests/api-keys.test.ts`](file:///c:/vibe%20coding/xoru/apps/backend/tests/api-keys.test.ts))**:
+  - Added complete test coverage verifying SHA-256 key hashing, key generation, authentication, rate limit headers, log retrieval, and usage billing endpoints.
+  - Backend test suite passing **45/45 unit tests green** (`bun test`).
+  - Frontend typecheck passing with **0 TypeScript errors** (`bun run typecheck`).
 
+### How We Built It
+- WebCrypto SHA-256 deterministic key hashing for zero-dependency edge execution.
+- Cloudflare KV edge cache for sub-10ms key resolution and sliding-window rate limit counters.
+- Non-blocking `c.executionCtx.waitUntil(...)` for asynchronous request and response payload persistence.
+- Neon Postgres Row-Level Security (RLS) for multi-tenant developer log isolation.
+
+### In Scope
+- Developer API keys generation and CRUD, rate limiting middleware, usage billing metrics, request/response payload audit logging, live DB migration, frontend settings dashboard & inspector, and unit tests.
+
+### Out of Scope
+- Dynamic Smart Routing rules engine (Device OS, Geo ISO Country Code, A/B Traffic Split) scheduled for Session 19.
+
+### Breaking Changes
+- NONE
+
+### Notes for Future Sessions
+- Live Backend: `https://xoru-backend.mridu.workers.dev`
+- Live Frontend: `https://xoru-frontend.mridu.workers.dev`
+- API Key Format: `key_live_...` or `key_test_...`
+- API Key Headers: `Authorization: Bearer key_live_...` or `X-API-Key: key_live_...`
+- **Session 19 Focus**: Dynamic Smart Routing rules engine (`smart_routes` table: Device OS, Geo ISO Country Code, A/B Traffic Split) and connecting `/dashboard/routes` UI to live backend routing execution.

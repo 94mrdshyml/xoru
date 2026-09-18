@@ -128,6 +128,52 @@ CREATE INDEX IF NOT EXISTS idx_click_events_link_time ON click_events(link_id, t
 CREATE INDEX IF NOT EXISTS idx_click_events_user_time ON click_events(user_id, timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_click_events_workspace_time ON click_events(workspace_id, timestamp DESC);
 
+-- 7. Developer API Keys Table (Usage-Based Metering, Rate Limiting & Hashed Keys)
+CREATE TABLE IF NOT EXISTS api_keys (
+    id VARCHAR(64) PRIMARY KEY, -- key_xxx
+    user_id VARCHAR(64) NOT NULL, -- usr_xxx
+    workspace_id VARCHAR(64) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    key_prefix VARCHAR(32) NOT NULL, -- e.g. 'key_live_9a8f'
+    key_hash VARCHAR(64) UNIQUE NOT NULL, -- SHA-256 of raw secret
+    environment VARCHAR(16) NOT NULL DEFAULT 'live', -- 'live' or 'test'
+    monthly_limit INT NOT NULL DEFAULT 10000,
+    requests_count INT NOT NULL DEFAULT 0,
+    billing_cycle_start TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    rate_limit_per_minute INT NOT NULL DEFAULT 60,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    last_used_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_keys_workspace_id ON api_keys(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);
+
+-- 8. API Call Audit Logs Table (Full Request & Response Logging)
+CREATE TABLE IF NOT EXISTS api_call_logs (
+    id VARCHAR(64) PRIMARY KEY, -- apilog_xxx
+    key_id VARCHAR(64) REFERENCES api_keys(id) ON DELETE SET NULL,
+    user_id VARCHAR(64) NOT NULL,
+    workspace_id VARCHAR(64) NOT NULL,
+    http_method VARCHAR(16) NOT NULL,
+    endpoint TEXT NOT NULL,
+    status_code INT NOT NULL,
+    response_time_ms INT NOT NULL,
+    request_headers JSONB,
+    request_body JSONB,
+    response_body JSONB,
+    error_message TEXT,
+    ip_hash VARCHAR(64) NOT NULL,
+    user_agent TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_call_logs_key_time ON api_call_logs(key_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_api_call_logs_workspace_time ON api_call_logs(workspace_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_api_call_logs_user_time ON api_call_logs(user_id, created_at DESC);
+
 -- ==============================================================================
 -- NEON POSTGRES ROW-LEVEL SECURITY (RLS) POLICIES (USER-LEVEL MULTI-TENANCY)
 -- ==============================================================================
@@ -139,6 +185,8 @@ ALTER TABLE smart_routes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE retargeting_pixels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE click_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pixel_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE api_call_logs ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if re-applying
 DROP POLICY IF EXISTS tenant_isolation_workspaces ON workspaces;
@@ -147,6 +195,8 @@ DROP POLICY IF EXISTS tenant_isolation_smart_routes ON smart_routes;
 DROP POLICY IF EXISTS tenant_isolation_retargeting_pixels ON retargeting_pixels;
 DROP POLICY IF EXISTS tenant_isolation_click_events ON click_events;
 DROP POLICY IF EXISTS tenant_isolation_pixel_events ON pixel_events;
+DROP POLICY IF EXISTS tenant_isolation_api_keys ON api_keys;
+DROP POLICY IF EXISTS tenant_isolation_api_call_logs ON api_call_logs;
 
 -- Create Tenant Isolation Policies (enforcing user_id)
 CREATE POLICY tenant_isolation_workspaces ON workspaces
@@ -170,5 +220,13 @@ CREATE POLICY tenant_isolation_click_events ON click_events
     USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));
 
 CREATE POLICY tenant_isolation_pixel_events ON pixel_events
+    FOR ALL
+    USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));
+
+CREATE POLICY tenant_isolation_api_keys ON api_keys
+    FOR ALL
+    USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));
+
+CREATE POLICY tenant_isolation_api_call_logs ON api_call_logs
     FOR ALL
     USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));

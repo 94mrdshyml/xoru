@@ -290,6 +290,7 @@ app.delete('/api/v1/workspaces/:id', tenantMiddleware, async (c) => {
 import linksApp from './routes/links'
 import analyticsApp from './routes/analytics'
 import { pixelsRouter, getTrackerScript, TRANSPARENT_GIF_BUFFER } from './routes/pixels'
+import { apiKeysRouter } from './routes/api-keys'
 import { runDatabaseMigration } from './db/migrate'
 import { extractTelemetry, logClickEventToDb } from './utils/telemetry'
 
@@ -417,6 +418,9 @@ app.route('/api/v1/analytics', analyticsApp)
 
 // Mount Pixels Router
 app.route('/api/v1/pixels', pixelsRouter)
+
+// Mount Developer API Keys Router
+app.route('/api/v1/api-keys', apiKeysRouter)
 
 import { verifyPassword } from './utils/crypto'
 

@@ -141,13 +141,62 @@ export async function runDatabaseMigration(databaseUrl: string) {
   await sql`CREATE INDEX IF NOT EXISTS idx_click_events_user_time ON click_events(user_id, timestamp DESC);`
   await sql`CREATE INDEX IF NOT EXISTS idx_click_events_workspace_time ON click_events(workspace_id, timestamp DESC);`
 
-  // 6. Row-Level Security
+  // 6. Developer API Keys & API Call Logs
+  await sql`
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id VARCHAR(64) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      workspace_id VARCHAR(64) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      key_prefix VARCHAR(32) NOT NULL,
+      key_hash VARCHAR(64) UNIQUE NOT NULL,
+      environment VARCHAR(16) NOT NULL DEFAULT 'live',
+      monthly_limit INT NOT NULL DEFAULT 10000,
+      requests_count INT NOT NULL DEFAULT 0,
+      billing_cycle_start TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      rate_limit_per_minute INT NOT NULL DEFAULT 60,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      last_used_at TIMESTAMPTZ,
+      expires_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `
+  await sql`CREATE INDEX IF NOT EXISTS idx_api_keys_workspace_id ON api_keys(workspace_id);`
+  await sql`CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id);`
+  await sql`CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);`
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS api_call_logs (
+      id VARCHAR(64) PRIMARY KEY,
+      key_id VARCHAR(64) REFERENCES api_keys(id) ON DELETE SET NULL,
+      user_id VARCHAR(64) NOT NULL,
+      workspace_id VARCHAR(64) NOT NULL,
+      http_method VARCHAR(16) NOT NULL,
+      endpoint TEXT NOT NULL,
+      status_code INT NOT NULL,
+      response_time_ms INT NOT NULL,
+      request_headers JSONB,
+      request_body JSONB,
+      response_body JSONB,
+      error_message TEXT,
+      ip_hash VARCHAR(64) NOT NULL,
+      user_agent TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `
+  await sql`CREATE INDEX IF NOT EXISTS idx_api_call_logs_key_time ON api_call_logs(key_id, created_at DESC);`
+  await sql`CREATE INDEX IF NOT EXISTS idx_api_call_logs_workspace_time ON api_call_logs(workspace_id, created_at DESC);`
+  await sql`CREATE INDEX IF NOT EXISTS idx_api_call_logs_user_time ON api_call_logs(user_id, created_at DESC);`
+
+  // 7. Row-Level Security
   await sql`ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;`
   await sql`ALTER TABLE links ENABLE ROW LEVEL SECURITY;`
   await sql`ALTER TABLE smart_routes ENABLE ROW LEVEL SECURITY;`
   await sql`ALTER TABLE retargeting_pixels ENABLE ROW LEVEL SECURITY;`
   await sql`ALTER TABLE click_events ENABLE ROW LEVEL SECURITY;`
   await sql`ALTER TABLE pixel_events ENABLE ROW LEVEL SECURITY;`
+  await sql`ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;`
+  await sql`ALTER TABLE api_call_logs ENABLE ROW LEVEL SECURITY;`
 
   await sql`DROP POLICY IF EXISTS tenant_isolation_workspaces ON workspaces;`
   await sql`DROP POLICY IF EXISTS tenant_isolation_links ON links;`
@@ -155,6 +204,8 @@ export async function runDatabaseMigration(databaseUrl: string) {
   await sql`DROP POLICY IF EXISTS tenant_isolation_retargeting_pixels ON retargeting_pixels;`
   await sql`DROP POLICY IF EXISTS tenant_isolation_click_events ON click_events;`
   await sql`DROP POLICY IF EXISTS tenant_isolation_pixel_events ON pixel_events;`
+  await sql`DROP POLICY IF EXISTS tenant_isolation_api_keys ON api_keys;`
+  await sql`DROP POLICY IF EXISTS tenant_isolation_api_call_logs ON api_call_logs;`
 
   await sql`CREATE POLICY tenant_isolation_workspaces ON workspaces FOR ALL USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));`
   await sql`CREATE POLICY tenant_isolation_links ON links FOR ALL USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));`
@@ -162,4 +213,6 @@ export async function runDatabaseMigration(databaseUrl: string) {
   await sql`CREATE POLICY tenant_isolation_retargeting_pixels ON retargeting_pixels FOR ALL USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));`
   await sql`CREATE POLICY tenant_isolation_click_events ON click_events FOR ALL USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));`
   await sql`CREATE POLICY tenant_isolation_pixel_events ON pixel_events FOR ALL USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));`
+  await sql`CREATE POLICY tenant_isolation_api_keys ON api_keys FOR ALL USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));`
+  await sql`CREATE POLICY tenant_isolation_api_call_logs ON api_call_logs FOR ALL USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));`
 }

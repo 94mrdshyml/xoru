@@ -25,6 +25,8 @@ export async function hashIpAddress(ip: string, salt: string = 'xoru_default_sal
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32)
 }
 
+export const hashIp = hashIpAddress
+
 /**
  * Lightweight, zero-dependency User-Agent parser optimized for Cloudflare Workers
  */
