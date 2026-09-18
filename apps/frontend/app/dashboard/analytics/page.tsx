@@ -16,6 +16,7 @@ import {
   Link2,
 } from '@deemlol/next-icons';
 import { ShortLink } from '@/components/LinksTable';
+import { useWorkspace } from '@/context/WorkspaceContext';
 
 interface AnalyticsData {
   total_clicks: number;
@@ -43,6 +44,7 @@ export default function AnalyticsPage() {
   const { isLoaded: isUserLoaded, isSignedIn } = useUser();
   const { getToken, isLoaded: isAuthLoaded } = useAuth();
   const router = useRouter();
+  const { activeWorkspace, activeWorkspaceId, getWorkspaceLogo } = useWorkspace();
 
   const [hasMounted, setHasMounted] = useState(false);
   const [links, setLinks] = useState<ShortLink[]>([]);
@@ -55,8 +57,8 @@ export default function AnalyticsPage() {
     setHasMounted(true);
   }, []);
 
-  // Fetch short links list for filter dropdown
-  const fetchLinks = useCallback(async () => {
+  // Fetch short links list for active workspace
+  const fetchLinks = useCallback(async (wrkId?: string) => {
     const backendUrl =
       process.env.NEXT_PUBLIC_BACKEND_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
@@ -66,7 +68,11 @@ export default function AnalyticsPage() {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`${backendUrl}/api/v1/links`, { headers });
+      const queryUrl = wrkId
+        ? `${backendUrl}/api/v1/links?workspace_id=${wrkId}`
+        : `${backendUrl}/api/v1/links`;
+
+      const res = await fetch(queryUrl, { headers });
       if (res.ok) {
         const data = await res.json();
         setLinks(Array.isArray(data) ? data : []);
@@ -77,7 +83,7 @@ export default function AnalyticsPage() {
   }, [getToken]);
 
   // Fetch telemetry analytics from backend
-  const fetchAnalytics = useCallback(async (linkId: string) => {
+  const fetchAnalytics = useCallback(async (linkId: string, wrkId?: string) => {
     setIsFetchingAnalytics(true);
     const backendUrl =
       process.env.NEXT_PUBLIC_BACKEND_URL ||
@@ -92,6 +98,8 @@ export default function AnalyticsPage() {
       query.set('period', '7d');
       if (linkId !== 'all') {
         query.set('link_id', linkId);
+      } else if (wrkId) {
+        query.set('workspace_id', wrkId);
       }
 
       const res = await fetch(`${backendUrl}/api/v1/analytics?${query.toString()}`, { headers });
@@ -112,11 +120,11 @@ export default function AnalyticsPage() {
       if (!isSignedIn) {
         router.push('/sign-in');
       } else {
-        fetchLinks();
-        fetchAnalytics(selectedLinkId);
+        fetchLinks(activeWorkspaceId);
+        fetchAnalytics(selectedLinkId, activeWorkspaceId);
       }
     }
-  }, [hasMounted, isUserLoaded, isAuthLoaded, isSignedIn, router, fetchLinks, fetchAnalytics, selectedLinkId]);
+  }, [hasMounted, isUserLoaded, isAuthLoaded, isSignedIn, router, fetchLinks, fetchAnalytics, selectedLinkId, activeWorkspaceId]);
 
   const activeLinks = selectedLinkId === 'all'
     ? links
@@ -189,6 +197,9 @@ export default function AnalyticsPage() {
     bot: 'bg-slate-400',
   };
 
+  const workspaceName = activeWorkspace?.name || 'Active Workspace';
+  const workspaceLogo = getWorkspaceLogo(activeWorkspace);
+
   if (!hasMounted || !isUserLoaded || !isAuthLoaded || isLoading) {
     return (
       <div className="space-y-6 animate-pulse">
@@ -211,9 +222,15 @@ export default function AnalyticsPage() {
       {/* Top Header & Link Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
-            Real-Time Edge Analytics
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">
+              Real-Time Edge Analytics
+            </h1>
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200/60">
+              <img src={workspaceLogo} alt={workspaceName} className="w-3.5 h-3.5 rounded object-contain" />
+              {workspaceName}
+            </span>
+          </div>
           <p className="text-xs text-slate-500 mt-0.5">
             Real-time click telemetry, country ISO distributions, device intelligence, and referrer insights.
           </p>

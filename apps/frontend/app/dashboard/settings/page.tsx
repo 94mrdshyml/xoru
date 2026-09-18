@@ -18,6 +18,7 @@ import {
 import { CustomModal } from '@/components/ui/CustomModal';
 import { MorphButton } from '@/components/ui/MorphButton';
 import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal';
+import { useWorkspace } from '@/context/WorkspaceContext';
 
 interface ApiKey {
   id: string;
@@ -31,6 +32,7 @@ interface ApiKey {
 export default function SettingsPage() {
   const { user } = useUser();
   const { userId } = useAuth();
+  const { activeWorkspace, getWorkspaceLogo } = useWorkspace();
 
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([
     {
@@ -195,15 +197,26 @@ export default function SettingsPage() {
               <span>Workspace Profile</span>
             </div>
             <div className="space-y-2 text-xs">
+              <div className="flex justify-between items-center py-1 border-b border-slate-100">
+                <span className="text-slate-500">Active Workspace</span>
+                <span className="inline-flex items-center gap-1.5 font-bold text-slate-900">
+                  <img
+                    src={getWorkspaceLogo(activeWorkspace)}
+                    alt={activeWorkspace?.name || 'Workspace'}
+                    className="w-4 h-4 rounded object-contain border border-slate-200/80"
+                  />
+                  {activeWorkspace?.name || 'Workspace'}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-100">
+                <span className="text-slate-500">Workspace ID</span>
+                <span className="font-mono text-slate-700 text-[11px]">{activeWorkspace?.id || 'wrk_default'}</span>
+              </div>
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Workspace Owner</span>
                 <span className="font-semibold text-slate-800">
                   {user?.fullName || user?.firstName || 'Personal'}
                 </span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-500">User Tenant ID</span>
-                <span className="font-mono text-slate-700">{userId || 'usr_authenticated'}</span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-slate-500">RLS Multi-Tenancy</span>

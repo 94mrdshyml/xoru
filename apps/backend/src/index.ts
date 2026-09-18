@@ -113,13 +113,13 @@ app.get('/api/v1/workspaces', tenantMiddleware, async (c) => {
 
   if (!dbUrl) {
     const cleanId = userId.replace(/^(usr_|user_)/, '')
-    return c.json([{ id: `wrk_${cleanId}`, user_id: userId, name: "Default Workspace", slug: "default" }])
+    return c.json([{ id: `wrk_${cleanId}`, user_id: userId, name: "Default Workspace", slug: "default", logo_url: null }])
   }
 
   try {
     const workspaces = await withTenantDb(dbUrl, userId, async (sql) => {
       let list = await sql`
-        SELECT id, user_id, name, slug, created_at, updated_at
+        SELECT id, user_id, name, slug, logo_url, created_at, updated_at
         FROM workspaces
         WHERE user_id = ${userId}
         ORDER BY created_at ASC
@@ -139,7 +139,7 @@ app.get('/api/v1/workspaces', tenantMiddleware, async (c) => {
         `
 
         list = await sql`
-          SELECT id, user_id, name, slug, created_at, updated_at
+          SELECT id, user_id, name, slug, logo_url, created_at, updated_at
           FROM workspaces
           WHERE user_id = ${userId}
           ORDER BY created_at ASC
@@ -151,7 +151,7 @@ app.get('/api/v1/workspaces', tenantMiddleware, async (c) => {
     return c.json(workspaces)
   } catch (err: any) {
     const cleanId = userId.replace(/^(usr_|user_)/, '')
-    return c.json([{ id: `wrk_${cleanId}`, user_id: userId, name: "Default Workspace", slug: "default" }])
+    return c.json([{ id: `wrk_${cleanId}`, user_id: userId, name: "Default Workspace", slug: "default", logo_url: null }])
   }
 })
 
@@ -159,7 +159,7 @@ app.get('/api/v1/workspaces', tenantMiddleware, async (c) => {
 app.post('/api/v1/workspaces', tenantMiddleware, async (c) => {
   const tenant = c.get('tenant')
   const userId = tenant.user_id
-  const body = await c.req.json<{ name: string }>().catch(() => ({} as any))
+  const body = await c.req.json<{ name: string; logo_url?: string }>().catch(() => ({} as any))
   if (!body.name || !body.name.trim()) {
     return c.json({ error: { code: 'INVALID_INPUT', message: 'name is required' } }, 400)
   }
@@ -168,18 +168,123 @@ app.post('/api/v1/workspaces', tenantMiddleware, async (c) => {
   const cleanName = body.name.trim()
   const slugBase = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
   const workspaceSlug = `wrk-${slugBase}-${workspaceId.slice(4, 10)}`
+  const logoUrl = body.logo_url ? body.logo_url.trim() : null
 
   const dbUrl = c.env?.NEON_DATABASE_URL
   if (dbUrl) {
     await withTenantDb(dbUrl, userId, async (sql) => {
       await sql`
-        INSERT INTO workspaces (id, user_id, name, slug)
-        VALUES (${workspaceId}, ${userId}, ${cleanName}, ${workspaceSlug})
+        INSERT INTO workspaces (id, user_id, name, slug, logo_url)
+        VALUES (${workspaceId}, ${userId}, ${cleanName}, ${workspaceSlug}, ${logoUrl})
       `
     })
   }
 
-  return c.json({ id: workspaceId, user_id: userId, name: cleanName, slug: workspaceSlug }, 201)
+  return c.json({ id: workspaceId, user_id: userId, name: cleanName, slug: workspaceSlug, logo_url: logoUrl }, 201)
+})
+
+// Update Workspace (name, slug, logo_url)
+app.patch('/api/v1/workspaces/:id', tenantMiddleware, async (c) => {
+  const tenant = c.get('tenant')
+  const userId = tenant.user_id
+  const workspaceId = c.req.param('id')
+  const body = await c.req.json<{ name?: string; slug?: string; logo_url?: string }>().catch(() => ({} as any))
+
+  const dbUrl = c.env?.NEON_DATABASE_URL
+  if (!dbUrl) {
+    return c.json({ id: workspaceId, user_id: userId, name: body.name || 'Workspace', slug: body.slug || 'workspace' })
+  }
+
+  try {
+    const updated = await withTenantDb(dbUrl, userId, async (sql) => {
+      const existing = await sql`
+        SELECT id, user_id, name, slug, logo_url, created_at, updated_at
+        FROM workspaces
+        WHERE id = ${workspaceId} AND user_id = ${userId}
+        LIMIT 1
+      `
+      if (!existing || existing.length === 0) {
+        return null
+      }
+
+      const newName = body.name && body.name.trim() ? body.name.trim() : existing[0].name
+      const newSlug = body.slug && body.slug.trim() ? body.slug.trim() : existing[0].slug
+      const newLogo = body.logo_url !== undefined ? (body.logo_url ? body.logo_url.trim() : null) : existing[0].logo_url
+
+      const res = await sql`
+        UPDATE workspaces
+        SET name = ${newName}, slug = ${newSlug}, logo_url = ${newLogo}, updated_at = NOW()
+        WHERE id = ${workspaceId} AND user_id = ${userId}
+        RETURNING id, user_id, name, slug, logo_url, created_at, updated_at
+      `
+      return res[0]
+    })
+
+    if (!updated) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Workspace not found' } }, 404)
+    }
+
+    return c.json(updated)
+  } catch (err: any) {
+    console.error('PATCH /api/v1/workspaces/:id error:', err)
+    return c.json({ error: { code: 'UPDATE_FAILED', message: err.message || 'Failed to update workspace' } }, 500)
+  }
+})
+
+// Delete Workspace
+app.delete('/api/v1/workspaces/:id', tenantMiddleware, async (c) => {
+  const tenant = c.get('tenant')
+  const userId = tenant.user_id
+  const workspaceId = c.req.param('id')
+
+  const dbUrl = c.env?.NEON_DATABASE_URL
+  if (!dbUrl) {
+    return c.json({ success: true, id: workspaceId })
+  }
+
+  try {
+    const result = await withTenantDb(dbUrl, userId, async (sql) => {
+      // 1. Delete Workspace (Cascade deletes links, routes, pixels)
+      await sql`
+        DELETE FROM workspaces
+        WHERE id = ${workspaceId} AND user_id = ${userId}
+      `
+
+      // 2. Check if user has any workspaces left; if 0, auto-create a default one
+      let remaining = await sql`
+        SELECT id, user_id, name, slug, logo_url, created_at, updated_at
+        FROM workspaces
+        WHERE user_id = ${userId}
+        ORDER BY created_at ASC
+      `
+
+      if (!remaining || remaining.length === 0) {
+        const cleanId = userId.replace(/^(usr_|user_)/, '')
+        const newWrkId = generateId('wrk')
+        const newSlug = `wrk-${cleanId}`
+        const newName = `Personal Workspace`
+
+        await sql`
+          INSERT INTO workspaces (id, user_id, name, slug)
+          VALUES (${newWrkId}, ${userId}, ${newName}, ${newSlug})
+        `
+
+        remaining = await sql`
+          SELECT id, user_id, name, slug, logo_url, created_at, updated_at
+          FROM workspaces
+          WHERE user_id = ${userId}
+          ORDER BY created_at ASC
+        `
+      }
+
+      return remaining
+    })
+
+    return c.json({ success: true, id: workspaceId, remaining_workspaces: result })
+  } catch (err: any) {
+    console.error('DELETE /api/v1/workspaces/:id error:', err)
+    return c.json({ error: { code: 'DELETE_FAILED', message: err.message || 'Failed to delete workspace' } }, 500)
+  }
 })
 
 import linksApp from './routes/links'

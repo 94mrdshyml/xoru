@@ -1,67 +1,39 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '@clerk/nextjs';
 import {
   ChevronDown,
   Check,
   Plus,
-  Layers,
-  Sparkles,
+  Edit,
+  Trash,
 } from '@deemlol/next-icons';
+import { useWorkspace, Workspace } from '@/context/WorkspaceContext';
+import { EditWorkspaceModal } from './EditWorkspaceModal';
+import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal';
 
-interface Workspace {
-  id: string;
-  user_id: string;
-  name: string;
-  slug: string;
-}
+export function WorkspaceSelector() {
+  const {
+    workspaces,
+    activeWorkspace,
+    activeWorkspaceId,
+    setActiveWorkspaceId,
+    createWorkspace,
+    updateWorkspace,
+    deleteWorkspace,
+    getWorkspaceLogo,
+  } = useWorkspace();
 
-interface WorkspaceSelectorProps {
-  activeWorkspaceId: string;
-  onSelectWorkspace: (workspaceId: string) => void;
-}
-
-export function WorkspaceSelector({
-  activeWorkspaceId,
-  onSelectWorkspace,
-}: WorkspaceSelectorProps) {
-  const { getToken, userId } = useAuth();
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Edit / Delete State
+  const [editingWorkspace, setEditingWorkspace] = useState<Workspace | null>(null);
+  const [deletingWorkspace, setDeletingWorkspace] = useState<Workspace | null>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Fetch workspaces for current user
-  const fetchWorkspaces = async () => {
-    try {
-      const token = await getToken();
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      } else if (userId) {
-        headers['X-Tenant-Id'] = userId;
-      }
-
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev';
-      const res = await fetch(`${backendUrl}/api/v1/workspaces`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        setWorkspaces(data);
-        if (data.length > 0 && (!activeWorkspaceId || activeWorkspaceId === 'wrk_default')) {
-          onSelectWorkspace(data[0].id);
-        }
-      }
-    } catch {
-      // Fallback
-    }
-  };
-
-  useEffect(() => {
-    fetchWorkspaces();
-  }, [userId]);
 
   // Click outside listener
   useEffect(() => {
@@ -75,104 +47,137 @@ export function WorkspaceSelector({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) || workspaces[0];
-  const activeName = activeWorkspace?.name || 'Workspace';
-
   const handleCreateWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWorkspaceName.trim()) return;
 
     setIsSubmitting(true);
-    try {
-      const token = await getToken();
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      } else if (userId) {
-        headers['X-Tenant-Id'] = userId;
-      }
+    const created = await createWorkspace(newWorkspaceName.trim());
+    setIsSubmitting(false);
 
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'https://xoru-backend.mridu.workers.dev';
-      const res = await fetch(`${backendUrl}/api/v1/workspaces`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ name: newWorkspaceName.trim() }),
-      });
-
-      if (res.ok) {
-        const created = await res.json();
-        setWorkspaces((prev) => [...prev, created]);
-        onSelectWorkspace(created.id);
-        setNewWorkspaceName('');
-        setIsCreating(false);
-        setIsOpen(false);
-      }
-    } catch {
-      // Handle error
-    } finally {
-      setIsSubmitting(false);
+    if (created) {
+      setNewWorkspaceName('');
+      setIsCreating(false);
+      setIsOpen(false);
     }
   };
+
+  const handleEditSave = async (id: string, name: string, logoUrl?: string | null) => {
+    const res = await updateWorkspace(id, name, logoUrl);
+    return Boolean(res);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingWorkspace) return;
+    await deleteWorkspace(deletingWorkspace.id);
+    setDeletingWorkspace(null);
+  };
+
+  const activeName = activeWorkspace?.name || 'Workspace';
+  const activeLogo = getWorkspaceLogo(activeWorkspace);
 
   return (
     <div ref={containerRef} className="relative">
       <label className="block px-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-        Workspace
+        Active Workspace
       </label>
 
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 text-left shadow-sm hover:border-indigo-300 hover:bg-slate-50/50 transition-all duration-150"
+        className="flex w-full items-center justify-between rounded-xl border border-slate-200/90 bg-white p-2 text-left shadow-sm hover:border-indigo-300 hover:bg-slate-50/50 transition-all duration-150"
       >
         <div className="flex items-center gap-2.5 truncate">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 font-bold border border-indigo-100 shrink-0">
-            <Layers className="w-4 h-4 stroke-[2]" />
-          </div>
+          <img
+            src={activeLogo}
+            alt={activeName}
+            className="w-7 h-7 rounded-lg bg-indigo-50/70 p-0.5 border border-slate-200/80 shadow-xs shrink-0 object-contain"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = getWorkspaceLogo(null);
+            }}
+          />
           <div className="truncate">
             <div className="text-xs font-bold text-slate-900 truncate">{activeName}</div>
-            <div className="text-[10px] font-medium text-slate-400">Personal Workspace</div>
+            <div className="text-[10px] font-medium text-slate-400 truncate">
+              {workspaces.length} {workspaces.length === 1 ? 'workspace' : 'workspaces'}
+            </div>
           </div>
         </div>
-        <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-1" />
+        <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 ml-1 transition-transform duration-200 ${isOpen ? 'rotate-180 text-indigo-600' : ''}`} />
       </button>
 
       {/* Custom Dropdown Popover */}
       {isOpen && (
         <div className="absolute left-0 top-full z-50 mt-1.5 w-full rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl animate-in fade-in-0 zoom-in-95 duration-150">
-          <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-            <Layers className="w-3 h-3 text-slate-400" />
-            <span>Select Workspace</span>
+          <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+            <span>Workspaces</span>
+            <span className="text-[9px] font-mono text-slate-400">{workspaces.length} Total</span>
           </div>
 
-          <div className="max-h-48 overflow-y-auto space-y-0.5">
+          <div className="max-h-52 overflow-y-auto space-y-1">
             {workspaces.map((wrk) => {
               const isSelected = activeWorkspaceId === wrk.id || (!activeWorkspaceId && wrk === workspaces[0]);
+              const logo = getWorkspaceLogo(wrk);
 
               return (
-                <button
+                <div
                   key={wrk.id}
-                  type="button"
-                  onClick={() => {
-                    onSelectWorkspace(wrk.id);
-                    setIsOpen(false);
-                  }}
-                  className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs font-semibold transition-colors ${
+                  className={`group flex items-center justify-between rounded-xl p-1.5 transition-colors ${
                     isSelected
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                      ? 'bg-indigo-50/90 text-indigo-900'
+                      : 'hover:bg-slate-50 text-slate-800'
                   }`}
                 >
-                  <div className="flex items-center gap-2 truncate">
-                    <div className="h-5 w-5 rounded-md bg-indigo-100/70 flex items-center justify-center text-[10px] font-bold text-indigo-600">
-                      {wrk.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="truncate">{wrk.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveWorkspaceId(wrk.id);
+                      setIsOpen(false);
+                    }}
+                    className="flex items-center gap-2.5 flex-1 truncate text-left"
+                  >
+                    <img
+                      src={logo}
+                      alt={wrk.name}
+                      className="w-6 h-6 rounded-md bg-white p-0.5 border border-slate-200/80 shadow-2xs shrink-0 object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = getWorkspaceLogo(null);
+                      }}
+                    />
+                    <span className="text-xs font-semibold truncate flex-1">{wrk.name}</span>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0 mr-1" />}
+                  </button>
+
+                  {/* Actions (Edit / Delete) */}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <button
+                      type="button"
+                      title="Edit Workspace"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingWorkspace(wrk);
+                        setIsOpen(false);
+                      }}
+                      className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-100/60 transition-colors"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                    {workspaces.length > 1 && (
+                      <button
+                        type="button"
+                        title="Delete Workspace"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeletingWorkspace(wrk);
+                          setIsOpen(false);
+                        }}
+                        className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                      >
+                        <Trash className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                  {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
-                </button>
+                </div>
               );
             })}
           </div>
@@ -183,24 +188,24 @@ export function WorkspaceSelector({
               <form onSubmit={handleCreateWorkspace} className="p-1 space-y-2">
                 <input
                   type="text"
-                  placeholder="Workspace name..."
+                  placeholder="New workspace name..."
                   value={newWorkspaceName}
                   onChange={(e) => setNewWorkspaceName(e.target.value)}
                   autoFocus
-                  className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-900 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
                 />
                 <div className="flex gap-1.5">
                   <button
                     type="submit"
                     disabled={isSubmitting || !newWorkspaceName.trim()}
-                    className="flex-1 rounded-lg bg-indigo-600 py-1 text-[11px] font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                    className="flex-1 rounded-lg bg-indigo-600 py-1.5 text-[11px] font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-xs"
                   >
                     {isSubmitting ? 'Creating...' : 'Create'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsCreating(false)}
-                    className="px-2 py-1 text-[11px] font-medium text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+                    className="px-2.5 py-1.5 text-[11px] font-semibold text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
@@ -210,16 +215,33 @@ export function WorkspaceSelector({
               <button
                 type="button"
                 onClick={() => setIsCreating(true)}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-50/70 transition-colors"
+                className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50/70 transition-colors"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>Create New Workspace</span>
               </button>
             )}
           </div>
         </div>
       )}
+
+      {/* Edit Workspace Modal */}
+      <EditWorkspaceModal
+        isOpen={Boolean(editingWorkspace)}
+        onClose={() => setEditingWorkspace(null)}
+        workspace={editingWorkspace}
+        onSave={handleEditSave}
+      />
+
+      {/* Delete Workspace Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={Boolean(deletingWorkspace)}
+        onClose={() => setDeletingWorkspace(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Workspace"
+        itemName={deletingWorkspace?.name}
+        description={`Are you sure you want to delete "${deletingWorkspace?.name}"? All associated short links, dynamic smart routes, and analytics will be permanently destroyed.`}
+      />
     </div>
   );
 }
-

@@ -10,11 +10,13 @@ export async function runDatabaseMigration(databaseUrl: string) {
       user_id VARCHAR(64) NOT NULL,
       name VARCHAR(255) NOT NULL,
       slug VARCHAR(255) NOT NULL,
+      logo_url TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE(user_id, slug)
     );
   `
+  await sql`ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS logo_url TEXT;`
   await sql`CREATE INDEX IF NOT EXISTS idx_workspaces_user_id ON workspaces(user_id);`
 
   // 2. Links

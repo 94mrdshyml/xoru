@@ -609,6 +609,63 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - Live Backend: `https://xoru-backend.mridu.workers.dev`
 - Live Frontend: `https://xoru-frontend.mridu.workers.dev`
 - Analytics Endpoint: `GET /api/v1/analytics?period=7d`
-- **Session 16 Focus**: Dynamic Smart Routing rules engine (`smart_routes` table: Device OS, Geo ISO Country Code, A/B Traffic Split) and connecting `/dashboard/routes` UI to backend CRUD.
+- **Session 16 Focus**: Global Workspace State, Multi-Workspace Isolation, Edit/Delete CRUD & Dicebear Geometric Avatars.
+
+---
+
+## Session 16 — Global Workspace State, Multi-Workspace Isolation, Edit/Delete CRUD & Dicebear Geometric Avatars
+
+**Date & Time (IST):** 2026-09-18 12:15 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **Global Workspace State & Context Provider ([`apps/frontend/context/WorkspaceContext.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/context/WorkspaceContext.tsx))**:
+  - Implemented `WorkspaceProvider` and `useWorkspace` hook with `localStorage` active workspace ID persistence.
+  - Automatic fallback resolution to the first available workspace if none is explicitly selected.
+  - Auto-provisions and synchronizes workspaces upon user sign-in.
+  - Dispatches and listens to custom workspace update events.
+- **Dynamic Multi-Workspace Dashboard Filtering**:
+  - **Overview Page ([`apps/frontend/app/dashboard/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/page.tsx))**: Short links and total click metrics instantly re-fetch filtered by `workspace_id`.
+  - **Analytics Page ([`apps/frontend/app/dashboard/analytics/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/analytics/page.tsx))**: Click volume charts, top referrers, device breakdown, and geo tables automatically scope telemetry queries to `workspace_id`.
+  - **Settings Page ([`apps/frontend/app/dashboard/settings/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/settings/page.tsx))**: Active workspace details and profile management reflect current selection.
+  - **Sidebar & Header ([`apps/frontend/components/dashboard/Sidebar.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/dashboard/Sidebar.tsx))**: Workspace logo and name dynamically rendered throughout navigation.
+- **Full Workspace CRUD Operations ([`apps/backend/src/index.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/index.ts))**:
+  - `GET /api/v1/workspaces`: Lists all workspaces for the authenticated user.
+  - `POST /api/v1/workspaces`: Creates new workspace with optional custom `logo_url`.
+  - `PATCH /api/v1/workspaces/:id`: Updates workspace name, slug, and logo URL.
+  - `DELETE /api/v1/workspaces/:id`: Cascades associated short links, smart routes, and analytics; automatically provisions a new `Personal Workspace` if all workspaces are deleted.
+- **Workspace Edit & Delete Modals ([`EditWorkspaceModal.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/dashboard/EditWorkspaceModal.tsx), [`WorkspaceSelector.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/dashboard/WorkspaceSelector.tsx))**:
+  - Implemented modal to edit workspace names and switch between Dicebear and custom image URL logos.
+  - Connected `DeleteConfirmModal` with action warnings and cascade deletion confirmation.
+- **Deterministic Dicebear SVG Avatar Generation**:
+  - Integrated `https://api.dicebear.com/7.x/identicon/svg?seed=...` seeded by workspace identity (ID and name) ensuring consistent, sharp geometric brand icons whenever a custom logo is not provided.
+- **Additive Database Schema Migration ([`packages/db/schema.sql`](file:///c:/vibe%20coding/xoru/packages/db/schema.sql), [`apps/backend/src/db/migrate.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/db/migrate.ts))**:
+  - Added `logo_url TEXT` column to `workspaces` table.
+  - Executed migration live against Neon Postgres `production` branch and verified columns via SQL.
+- **Test Suites & Quality Gate**:
+  - Added `workspaces.test.ts` Vitest suite in backend (`31/31` unit tests passing green).
+  - TypeScript typecheck passed with 0 errors across frontend and backend.
+
+### How We Built It
+- Global React Context with `localStorage` persistence and cross-component reactivity.
+- Dicebear Identicon deterministic hashing using workspace ID/name seeds.
+- Safe additive schema migration executed against Neon Postgres.
+
+### In Scope
+- Global workspace state, dashboard and analytics workspace filtering, workspace CRUD API endpoints, Edit/Delete workspace modals, Dicebear avatar integration, additive schema migration, backend unit tests, and TypeScript verification.
+
+### Out of Scope
+- Dynamic Smart Routing rules engine (Device OS, Geo ISO, A/B Split) scheduled for Session 17.
+
+### Breaking Changes
+- NONE
+
+### Notes for Future Sessions
+- Live Backend: `https://xoru-backend.mridu.workers.dev`
+- Live Frontend: `https://xoru-frontend.mridu.workers.dev`
+- All workspace operations are isolated by `user_id` and RLS.
+- **Session 17 Focus**: Dynamic Smart Routing rules engine (`smart_routes` table: Device OS, Geo ISO Country Code, A/B Traffic Split) and connecting `/dashboard/routes` UI to backend CRUD.
+
 
 

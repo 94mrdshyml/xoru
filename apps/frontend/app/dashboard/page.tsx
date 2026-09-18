@@ -5,17 +5,19 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { Link2, BarChart2, Layers } from '@deemlol/next-icons';
 import { LinksTable, ShortLink } from '@/components/LinksTable';
+import { useWorkspace } from '@/context/WorkspaceContext';
 
 export default function DashboardPage() {
   const { isLoaded: isUserLoaded, isSignedIn, user } = useUser();
   const { getToken, isLoaded: isAuthLoaded } = useAuth();
   const router = useRouter();
+  const { activeWorkspace, activeWorkspaceId, getWorkspaceLogo } = useWorkspace();
 
   const [links, setLinks] = useState<ShortLink[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasMounted, setHasMounted] = useState(false);
 
-  const fetchLinks = useCallback(async () => {
+  const fetchLinks = useCallback(async (wrkId?: string) => {
     setIsLoading(true);
     const backendUrl =
       process.env.NEXT_PUBLIC_BACKEND_URL ||
@@ -28,7 +30,11 @@ export default function DashboardPage() {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const res = await fetch(`${backendUrl}/api/v1/links`, { headers });
+      const queryUrl = wrkId
+        ? `${backendUrl}/api/v1/links?workspace_id=${wrkId}`
+        : `${backendUrl}/api/v1/links`;
+
+      const res = await fetch(queryUrl, { headers });
       if (res.ok) {
         const data = await res.json();
         setLinks(Array.isArray(data) ? data : []);
@@ -51,16 +57,16 @@ export default function DashboardPage() {
       if (!isSignedIn) {
         router.push('/sign-in');
       } else {
-        fetchLinks();
+        fetchLinks(activeWorkspaceId);
       }
     }
-  }, [hasMounted, isUserLoaded, isAuthLoaded, isSignedIn, router, fetchLinks]);
+  }, [hasMounted, isUserLoaded, isAuthLoaded, isSignedIn, router, fetchLinks, activeWorkspaceId]);
 
   useEffect(() => {
-    const handleGlobalCreate = () => fetchLinks();
+    const handleGlobalCreate = () => fetchLinks(activeWorkspaceId);
     window.addEventListener('linkCreated', handleGlobalCreate);
     return () => window.removeEventListener('linkCreated', handleGlobalCreate);
-  }, [fetchLinks]);
+  }, [fetchLinks, activeWorkspaceId]);
 
   if (!hasMounted || !isUserLoaded || !isAuthLoaded || !user) {
     return (
@@ -92,19 +98,26 @@ export default function DashboardPage() {
 
   const firstName = user.firstName || 'User';
   const lastName = user.lastName || '';
-  const workspaceName = `${firstName}'s Workspace`;
+  const workspaceName = activeWorkspace?.name || `${firstName}'s Workspace`;
+  const workspaceLogo = getWorkspaceLogo(activeWorkspace);
   const totalClicks = links.reduce((sum, link) => sum + (link.click_count || 0), 0);
 
   return (
     <div className="space-y-6">
       {/* Top Overview Bar */}
-      <div className="border-b border-slate-200/80 pb-4">
-        <h1 className="text-xl font-bold tracking-tight text-slate-900">
-          Welcome back, {firstName} {lastName}
-        </h1>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Overview and performance metrics for <strong className="text-slate-700 font-semibold">{workspaceName}</strong>
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+            Welcome back, {firstName} {lastName}
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
+            Overview and performance metrics for{' '}
+            <span className="inline-flex items-center gap-1.5 font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+              <img src={workspaceLogo} alt={workspaceName} className="w-3.5 h-3.5 rounded object-contain" />
+              {workspaceName}
+            </span>
+          </p>
+        </div>
       </div>
 
       {/* Metrics Overview Grid */}
@@ -120,63 +133,65 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-baseline justify-between pt-1">
-            <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{links.length}</p>
-            <span className="text-xs font-semibold text-slate-400">active links</span>
+            <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
+              {isLoading ? '...' : links.length}
+            </p>
+            <span className="text-xs font-medium text-slate-400">in workspace</span>
           </div>
         </div>
 
         {/* Total Clicks Card */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm hover:border-emerald-200/90 transition-all duration-150 space-y-2">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm hover:border-indigo-200/90 transition-all duration-150 space-y-2">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Total Clicks Tracked
+              Total Clicks
             </span>
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100/60">
               <BarChart2 className="w-4 h-4 stroke-[2]" />
             </div>
           </div>
           <div className="flex items-baseline justify-between pt-1">
-            <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{totalClicks}</p>
-            <span className="inline-flex items-center text-xs font-semibold text-emerald-600">
-              real-time edge
-            </span>
+            <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
+              {isLoading ? '...' : totalClicks}
+            </p>
+            <span className="text-xs font-semibold text-emerald-600">Active</span>
           </div>
         </div>
 
-        {/* Active Workspace Card */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm hover:border-slate-300 transition-all duration-150 space-y-2">
+        {/* Workspace Profile Card */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm hover:border-indigo-200/90 transition-all duration-150 space-y-2">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Active Environment
+              Workspace Environment
             </span>
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-600 border border-slate-200/60">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100/60">
               <Layers className="w-4 h-4 stroke-[2]" />
             </div>
           </div>
           <div className="flex items-baseline justify-between pt-1">
-            <p className="text-sm font-bold text-slate-900 truncate max-w-[180px]">{workspaceName}</p>
-            <span className="text-[11px] font-medium text-slate-400">Personal</span>
+            <p className="text-sm font-bold tracking-tight text-slate-900 truncate max-w-[180px]">
+              {workspaceName}
+            </p>
+            <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+              RLS Isolated
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Short Links Section */}
-      <div className="space-y-3 pt-1">
+      {/* Main Short Links Table */}
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">All Short Links</h2>
-          <span className="text-xs font-semibold text-slate-400 tabular-nums">
-            {links.length} {links.length === 1 ? 'entry' : 'entries'}
-          </span>
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Workspace Short Links</h2>
+            <p className="text-xs text-slate-500">Manage and monitor all short links created in this workspace.</p>
+          </div>
         </div>
 
         <LinksTable
           links={links}
-          onRefresh={fetchLinks}
           isLoading={isLoading}
-          onOpenCreate={() => {
-            const createBtn = document.querySelector('header button');
-            if (createBtn instanceof HTMLElement) createBtn.click();
-          }}
+          onRefresh={() => fetchLinks(activeWorkspaceId)}
         />
       </div>
     </div>

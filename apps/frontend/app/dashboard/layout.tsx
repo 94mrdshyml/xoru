@@ -3,47 +3,20 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
+import { WorkspaceProvider, useWorkspace } from '@/context/WorkspaceContext';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { Header } from '@/components/dashboard/Header';
 import { CreateLinkModal } from '@/components/CreateLinkModal';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [hasMounted, setHasMounted] = useState(false);
-  const { isLoaded, isSignedIn } = useAuth();
-  const router = useRouter();
+function DashboardShell({ children }: { children: React.ReactNode }) {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
-
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (hasMounted && isLoaded && !isSignedIn) {
-      router.push('/sign-in');
-    }
-  }, [hasMounted, isLoaded, isSignedIn, router]);
-
-  if (!hasMounted || !isLoaded || !isSignedIn) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
-      </div>
-    );
-  }
+  const { activeWorkspaceId } = useWorkspace();
 
   return (
     <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 antialiased">
       {/* Light Theme SaaS Sidebar */}
       <Sidebar
-        activeWorkspaceId={activeWorkspaceId}
-        onSelectWorkspace={(wrkId) => {
-          setActiveWorkspaceId(wrkId);
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('workspaceChanged', { detail: wrkId }));
-          }
-        }}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
@@ -72,5 +45,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         workspaceId={activeWorkspaceId}
       />
     </div>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [hasMounted, setHasMounted] = useState(false);
+  const { isLoaded, isSignedIn } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (hasMounted && isLoaded && !isSignedIn) {
+      router.push('/sign-in');
+    }
+  }, [hasMounted, isLoaded, isSignedIn, router]);
+
+  if (!hasMounted || !isLoaded || !isSignedIn) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  return (
+    <WorkspaceProvider>
+      <DashboardShell>{children}</DashboardShell>
+    </WorkspaceProvider>
   );
 }

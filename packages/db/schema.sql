@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
     user_id VARCHAR(64) NOT NULL, -- usr_xxx (Clerk User ID)
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(255) NOT NULL,
+    logo_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(user_id, slug)

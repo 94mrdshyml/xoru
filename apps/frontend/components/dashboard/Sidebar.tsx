@@ -18,15 +18,13 @@ import { WorkspaceSelector } from './WorkspaceSelector';
 
 interface SidebarProps {
   onOpenCreateModal?: () => void;
-  activeWorkspaceId: string;
-  onSelectWorkspace: (workspaceId: string) => void;
+  activeWorkspaceId?: string;
+  onSelectWorkspace?: (workspaceId: string) => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
 }
 
 export function Sidebar({
-  activeWorkspaceId,
-  onSelectWorkspace,
   isMobileOpen,
   onCloseMobile,
 }: SidebarProps) {
@@ -88,10 +86,7 @@ export function Sidebar({
         </div>
 
         {/* Workspace Selector UI */}
-        <WorkspaceSelector
-          activeWorkspaceId={activeWorkspaceId}
-          onSelectWorkspace={onSelectWorkspace}
-        />
+        <WorkspaceSelector />
 
         {/* Navigation Section */}
         <div className="space-y-1 pt-1">
