@@ -183,7 +183,9 @@ app.post('/api/v1/workspaces', tenantMiddleware, async (c) => {
 })
 
 import linksApp from './routes/links'
+import analyticsApp from './routes/analytics'
 import { runDatabaseMigration } from './db/migrate'
+import { extractTelemetry, logClickEventToDb } from './utils/telemetry'
 
 // Database Migration Endpoint (Admin/Auto)
 app.post('/api/v1/admin/migrate', async (c) => {
@@ -239,6 +241,9 @@ app.post('/api/v1/admin/reset', async (c) => {
 
 // Mount Short Link CRUD Router
 app.route('/api/v1/links', linksApp)
+
+// Mount Analytics Router
+app.route('/api/v1/analytics', analyticsApp)
 
 import { verifyPassword } from './utils/crypto'
 
@@ -371,8 +376,27 @@ app.get('/:code_or_slug', async (c) => {
             return c.html(renderPasswordChallengeHtml(code))
           }
 
-          // If not one-time, instant redirect
+          // If not one-time, instant redirect & trigger async background click logging
           if (!meta.is_one_time) {
+            if (meta.id && meta.user_id && c.env?.NEON_DATABASE_URL && c.executionCtx?.waitUntil) {
+              c.executionCtx.waitUntil((async () => {
+                try {
+                  const telemetry = await extractTelemetry(c.req.raw, new URL(c.req.url))
+                  const rawReferrer = c.req.header('referer') || c.req.header('referrer') || ''
+                  await logClickEventToDb({
+                    dbUrl: c.env.NEON_DATABASE_URL,
+                    linkId: meta.id,
+                    userId: meta.user_id,
+                    workspaceId: meta.workspace_id || `wrk_${meta.user_id.replace(/^(usr_|user_)/, '')}`,
+                    rawReferrer,
+                    telemetry,
+                  })
+                } catch (err) {
+                  console.error('Async KV click log error:', err)
+                }
+              })())
+            }
+
             return c.redirect(meta.destination_url, meta.redirect_type === 301 ? 301 : 302)
           }
         } catch {
@@ -393,7 +417,7 @@ app.get('/:code_or_slug', async (c) => {
       const sql = neon(dbUrl)
       const rows = await sql`
         SELECT 
-          id, destination_url, redirect_type, password_hash, password_salt,
+          id, user_id, workspace_id, destination_url, redirect_type, password_hash, password_salt,
           is_one_time, is_consumed, expires_at, is_active
         FROM links
         WHERE (short_code = ${code} OR custom_slug = ${code})
@@ -418,6 +442,26 @@ app.get('/:code_or_slug', async (c) => {
         // Check password challenge
         if (link.password_hash) {
           return c.html(renderPasswordChallengeHtml(code))
+        }
+
+        // Trigger async click logging
+        if (c.env?.NEON_DATABASE_URL && c.executionCtx?.waitUntil) {
+          c.executionCtx.waitUntil((async () => {
+            try {
+              const telemetry = await extractTelemetry(c.req.raw, new URL(c.req.url))
+              const rawReferrer = c.req.header('referer') || c.req.header('referrer') || ''
+              await logClickEventToDb({
+                dbUrl: c.env.NEON_DATABASE_URL,
+                linkId: link.id,
+                userId: link.user_id,
+                workspaceId: link.workspace_id,
+                rawReferrer,
+                telemetry,
+              })
+            } catch (err) {
+              console.error('Async DB click log error:', err)
+            }
+          })())
         }
 
         // Handle one-time consumption atomically
@@ -446,6 +490,8 @@ app.get('/:code_or_slug', async (c) => {
               `lnk:${code}`,
               JSON.stringify({
                 id: link.id,
+                user_id: link.user_id,
+                workspace_id: link.workspace_id,
                 destination_url: link.destination_url,
                 redirect_type: redirectStatus,
                 password_hash: link.password_hash,
@@ -501,7 +547,7 @@ app.post('/:code_or_slug/verify', async (c) => {
     const sql = neon(dbUrl)
     const rows = await sql`
       SELECT 
-        id, destination_url, redirect_type, password_hash, password_salt,
+        id, user_id, workspace_id, destination_url, redirect_type, password_hash, password_salt,
         is_one_time, is_consumed, expires_at, is_active
       FROM links
       WHERE (short_code = ${code} OR custom_slug = ${code})
@@ -533,6 +579,26 @@ app.post('/:code_or_slug/verify', async (c) => {
         }
         return c.html(renderPasswordChallengeHtml(code, 'Incorrect password. Please try again.'), 401)
       }
+    }
+
+    // Log verified click
+    if (c.env?.NEON_DATABASE_URL && c.executionCtx?.waitUntil) {
+      c.executionCtx.waitUntil((async () => {
+        try {
+          const telemetry = await extractTelemetry(c.req.raw, new URL(c.req.url))
+          const rawReferrer = c.req.header('referer') || c.req.header('referrer') || ''
+          await logClickEventToDb({
+            dbUrl: c.env.NEON_DATABASE_URL,
+            linkId: link.id,
+            userId: link.user_id,
+            workspaceId: link.workspace_id,
+            rawReferrer,
+            telemetry,
+          })
+        } catch (err) {
+          console.error('Async password click log error:', err)
+        }
+      })())
     }
 
     // Handle One-Time Consumption

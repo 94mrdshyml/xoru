@@ -95,9 +95,17 @@ export async function runDatabaseMigration(databaseUrl: string) {
       browser VARCHAR(64),
       os VARCHAR(64),
       referrer TEXT,
+      referrer_domain VARCHAR(128),
+      is_qr BOOLEAN NOT NULL DEFAULT FALSE,
       ip_hash VARCHAR(64) NOT NULL
     );
   `
+
+  await sql`ALTER TABLE click_events ADD COLUMN IF NOT EXISTS referrer_domain VARCHAR(128);`
+  await sql`ALTER TABLE click_events ADD COLUMN IF NOT EXISTS is_qr BOOLEAN NOT NULL DEFAULT FALSE;`
+  await sql`CREATE INDEX IF NOT EXISTS idx_click_events_link_time ON click_events(link_id, timestamp DESC);`
+  await sql`CREATE INDEX IF NOT EXISTS idx_click_events_user_time ON click_events(user_id, timestamp DESC);`
+  await sql`CREATE INDEX IF NOT EXISTS idx_click_events_workspace_time ON click_events(workspace_id, timestamp DESC);`
 
   // 6. Row-Level Security
   await sql`ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;`

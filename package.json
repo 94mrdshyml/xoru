@@ -17,6 +17,9 @@
   },
   "devDependencies": {
     "wrangler": "^3.100.0"
+  },
+  "dependencies": {
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.0"
   }
 }
-

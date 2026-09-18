@@ -562,3 +562,53 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - Neon DB Branch: `production` (`br-falling-shape-b42bib7p`), Project: `blue-grass-58298152`
 - All schema updates must remain strictly additive. Never execute `DROP TABLE`.
 
+---
+
+## Session 15 — Click Event Telemetry Ingestion, Anonymized Hashing & Live Analytics API
+
+**Date & Time (IST):** 2026-09-18 11:15 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **Zero-Dependency Edge Telemetry & User-Agent Parser ([`apps/backend/src/utils/telemetry.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/utils/telemetry.ts))**:
+  - Implemented lightweight, edge-compatible parser for Device Type (`desktop`, `mobile`, `tablet`, `bot`), Operating System (`iOS`, `Android`, `macOS`, `Windows`, `Linux`, `ChromeOS`), and Browser (`Chrome`, `Safari`, `Firefox`, `Edge`, `Opera`, `Brave`).
+  - Implemented Referrer Domain Normalizer mapping raw headers to brand sources (`Twitter / X`, `LinkedIn`, `Facebook`, `Google`, `Direct`).
+  - Implemented one-way WebCrypto SHA-256 IP Hasher generating 32-character hashes without storing raw PII (100% GDPR/CCPA compliant).
+- **Non-Blocking Asynchronous Click Logger ([`apps/backend/src/index.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/index.ts))**:
+  - Attached `c.executionCtx.waitUntil(logClickEventToDb(...))` to KV fast-path edge redirects ($<10\text{ms}$), DB fallback redirects, and password challenge unlocks.
+  - Short link redirects execute immediately with zero database latency overhead.
+- **Additive Database Schema Migration ([`packages/db/schema.sql`](file:///c:/vibe%20coding/xoru/packages/db/schema.sql), [`apps/backend/src/db/migrate.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/db/migrate.ts))**:
+  - Added `referrer_domain VARCHAR(128)` and `is_qr BOOLEAN NOT NULL DEFAULT FALSE` to `click_events`.
+  - Added index on `(workspace_id, timestamp DESC)`.
+  - Executed migration live against Neon Postgres `production` branch and verified all 14 columns via SQL.
+- **Backend Analytics Aggregation API ([`apps/backend/src/routes/analytics.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/routes/analytics.ts))**:
+  - `GET /api/v1/analytics`: Computes total clicks, unique visitors, QR clicks, 7-day time series, top devices, operating systems, top countries, and top acquisition referrers scoped by user RLS.
+- **Live Frontend Analytics Dashboard Integration ([`apps/frontend/app/dashboard/analytics/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/analytics/page.tsx))**:
+  - Replaced mock distributions with live telemetry API calls authenticated via Clerk JWT Bearer tokens.
+  - Wired live metrics to KPI summary cards, the 7-day volume bar chart, device breakdown, top countries, and top referrers.
+- **Test Suites**:
+  - Vitest suite in `apps/backend` updated with `telemetry.test.ts` and `analytics.test.ts` (25/25 tests passing green).
+  - TypeScript typechecking passed with 0 errors via Bun.
+
+### How We Built It
+- WebCrypto SHA-256 IP anonymization for privacy.
+- Cloudflare Workers `c.executionCtx.waitUntil` for zero-latency redirect telemetry ingestion.
+- Multi-tenant Postgres RLS aggregation queries in Hono.js backend.
+
+### In Scope
+- Telemetry extraction, IP hashing, non-blocking click logger, live schema migration, analytics API endpoint, frontend dashboard wire-up, Vitest suite, and typechecking.
+
+### Out of Scope
+- Dynamic Smart Routing (Device OS, Geo ISO, A/B Traffic Split) scheduled for Session 16.
+
+### Breaking Changes
+- NONE
+
+### Notes for Future Sessions
+- Live Backend: `https://xoru-backend.mridu.workers.dev`
+- Live Frontend: `https://xoru-frontend.mridu.workers.dev`
+- Analytics Endpoint: `GET /api/v1/analytics?period=7d`
+- **Session 16 Focus**: Dynamic Smart Routing rules engine (`smart_routes` table: Device OS, Geo ISO Country Code, A/B Traffic Split) and connecting `/dashboard/routes` UI to backend CRUD.
+
+

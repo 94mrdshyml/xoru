@@ -158,6 +158,8 @@ linksApp.post('/', async (c) => {
   if (c.env?.XORU_KV) {
     const kvPayload = JSON.stringify({
       id: linkId,
+      user_id: userId,
+      workspace_id: effectiveWorkspaceId,
       destination_url: body.destination_url,
       redirect_type: redirectType,
       password_hash: passwordHash,

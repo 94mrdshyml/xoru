@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS retargeting_pixels (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 5. Click Events Table (Neon DB Basic Analytics)
+-- 5. Click Events Table (Neon DB Analytics)
 CREATE TABLE IF NOT EXISTS click_events (
     id VARCHAR(64) PRIMARY KEY, -- evt_xxx
     user_id VARCHAR(64) NOT NULL,
@@ -89,11 +89,14 @@ CREATE TABLE IF NOT EXISTS click_events (
     browser VARCHAR(64),
     os VARCHAR(64),
     referrer TEXT,
+    referrer_domain VARCHAR(128),
+    is_qr BOOLEAN NOT NULL DEFAULT FALSE,
     ip_hash VARCHAR(64) NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_click_events_link_time ON click_events(link_id, timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_click_events_user_time ON click_events(user_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_click_events_workspace_time ON click_events(workspace_id, timestamp DESC);
 
 -- ==============================================================================
 -- NEON POSTGRES ROW-LEVEL SECURITY (RLS) POLICIES (USER-LEVEL MULTI-TENANCY)

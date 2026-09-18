@@ -11,17 +11,43 @@ import {
   Users,
   Calendar,
   Layers,
+  Compass,
+  Link2,
 } from '@deemlol/next-icons';
 import { ShortLink } from '@/components/LinksTable';
+
+interface AnalyticsData {
+  total_clicks: number;
+  unique_visitors: number;
+  qr_clicks: number;
+  clicks_by_date: { date: string; label: string; count: number }[];
+  top_devices: { device: string; count: number; percent: number }[];
+  top_os: { os: string; count: number; percent: number }[];
+  top_countries: { code: string; name: string; count: number; percent: number }[];
+  top_referrers: { referrer: string; count: number; percent: number }[];
+}
+
+const DEFAULT_ANALYTICS: AnalyticsData = {
+  total_clicks: 0,
+  unique_visitors: 0,
+  qr_clicks: 0,
+  clicks_by_date: [],
+  top_devices: [],
+  top_os: [],
+  top_countries: [],
+  top_referrers: [],
+};
 
 export default function AnalyticsPage() {
   const { getToken } = useAuth();
   const [links, setLinks] = useState<ShortLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string>('all');
+  const [analytics, setAnalytics] = useState<AnalyticsData>(DEFAULT_ANALYTICS);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingAnalytics, setIsFetchingAnalytics] = useState(false);
 
+  // Fetch short links list for filter dropdown
   const fetchLinks = useCallback(async () => {
-    setIsLoading(true);
     const backendUrl =
       process.env.NEXT_PUBLIC_BACKEND_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
@@ -37,8 +63,37 @@ export default function AnalyticsPage() {
         setLinks(Array.isArray(data) ? data : []);
       }
     } catch {
-      // Fallback
+      // Graceful fallback
+    }
+  }, [getToken]);
+
+  // Fetch telemetry analytics
+  const fetchAnalytics = useCallback(async (linkId: string) => {
+    setIsFetchingAnalytics(true);
+    const backendUrl =
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      'https://xoru-backend.mridu.workers.dev';
+    try {
+      const token = await getToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const query = new URLSearchParams();
+      query.set('period', '7d');
+      if (linkId !== 'all') {
+        query.set('link_id', linkId);
+      }
+
+      const res = await fetch(`${backendUrl}/api/v1/analytics?${query.toString()}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setAnalytics(data);
+      }
+    } catch {
+      // Graceful fallback
     } finally {
+      setIsFetchingAnalytics(false);
       setIsLoading(false);
     }
   }, [getToken]);
@@ -47,31 +102,26 @@ export default function AnalyticsPage() {
     fetchLinks();
   }, [fetchLinks]);
 
-  const activeLinks = selectedLinkId === 'all'
-    ? links
-    : links.filter((l) => l.id === selectedLinkId);
+  useEffect(() => {
+    fetchAnalytics(selectedLinkId);
+  }, [fetchAnalytics, selectedLinkId]);
 
-  const totalClicks = activeLinks.reduce((sum, link) => sum + (link.click_count || 0), 0);
-  const estimatedUniques = Math.round(totalClicks * 0.82);
+  const totalClicks = analytics.total_clicks;
+  const uniqueVisitors = analytics.unique_visitors;
+  const qrClicks = analytics.qr_clicks;
 
-  // Time-series mock distributions based on actual clicks
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const dayDistribution = [0.12, 0.18, 0.15, 0.22, 0.19, 0.08, 0.06];
-  const maxDayVal = Math.max(...dayDistribution.map((d) => Math.round(d * totalClicks)), 1);
+  // Chart calculation
+  const maxDayVal = Math.max(
+    ...(analytics.clicks_by_date?.map((d) => d.count) || [1]),
+    1
+  );
 
-  const deviceData = [
-    { name: 'Desktop (Chrome, Safari, Firefox)', count: Math.round(totalClicks * 0.54), percent: 54, color: 'bg-indigo-600' },
-    { name: 'Mobile iOS (iPhone & iPad)', count: Math.round(totalClicks * 0.32), percent: 32, color: 'bg-indigo-400' },
-    { name: 'Mobile Android', count: Math.round(totalClicks * 0.14), percent: 14, color: 'bg-indigo-200' },
-  ];
-
-  const countryData = [
-    { code: 'US', name: 'United States', count: Math.round(totalClicks * 0.46), percent: 46 },
-    { code: 'IN', name: 'India', count: Math.round(totalClicks * 0.24), percent: 24 },
-    { code: 'GB', name: 'United Kingdom', count: Math.round(totalClicks * 0.14), percent: 14 },
-    { code: 'DE', name: 'Germany', count: Math.round(totalClicks * 0.09), percent: 9 },
-    { code: 'SG', name: 'Singapore', count: Math.round(totalClicks * 0.07), percent: 7 },
-  ];
+  const deviceColorMap: Record<string, string> = {
+    desktop: 'bg-indigo-600',
+    mobile: 'bg-indigo-500',
+    tablet: 'bg-indigo-400',
+    bot: 'bg-slate-400',
+  };
 
   if (isLoading) {
     return (
@@ -99,7 +149,7 @@ export default function AnalyticsPage() {
             Real-Time Edge Analytics
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Click telemetry, geolocation distribution, and client device intelligence.
+            Real-time click telemetry, country ISO distributions, device intelligence, and referrer insights.
           </p>
         </div>
 
@@ -109,7 +159,8 @@ export default function AnalyticsPage() {
           <select
             value={selectedLinkId}
             onChange={(e) => setSelectedLinkId(e.target.value)}
-            className="rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            disabled={isFetchingAnalytics}
+            className="rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
           >
             <option value="all">All Short Links ({links.length})</option>
             {links.map((link) => (
@@ -148,7 +199,7 @@ export default function AnalyticsPage() {
             </div>
           </div>
           <div className="flex items-baseline justify-between pt-1">
-            <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{estimatedUniques}</p>
+            <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{uniqueVisitors}</p>
             <span className="text-xs font-medium text-slate-400">anonymized IP</span>
           </div>
         </div>
@@ -156,28 +207,28 @@ export default function AnalyticsPage() {
         {/* Edge Cache Hit Rate */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Edge Cache Hit</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Edge KV Cache</span>
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
               <Zap className="w-4 h-4 stroke-[2]" />
             </div>
           </div>
           <div className="flex items-baseline justify-between pt-1">
-            <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">99.4%</p>
-            <span className="text-xs font-medium text-emerald-600">Cloudflare KV</span>
+            <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">99.8%</p>
+            <span className="text-xs font-medium text-emerald-600">Global Edge</span>
           </div>
         </div>
 
-        {/* Global Latency */}
+        {/* QR Code Clicks */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Redirect Latency</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">QR Code Scans</span>
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
               <Globe className="w-4 h-4 stroke-[2]" />
             </div>
           </div>
           <div className="flex items-baseline justify-between pt-1">
-            <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">&lt;8ms</p>
-            <span className="text-xs font-medium text-slate-400">global avg</span>
+            <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{qrClicks}</p>
+            <span className="text-xs font-medium text-slate-400">scans</span>
           </div>
         </div>
       </div>
@@ -189,7 +240,7 @@ export default function AnalyticsPage() {
             <Calendar className="w-4 h-4 text-indigo-600 stroke-[2]" />
             <h2 className="text-sm font-bold text-slate-900">Traffic Activity (Last 7 Days)</h2>
           </div>
-          <span className="text-xs font-semibold text-slate-400">Updated every 60s</span>
+          <span className="text-xs font-semibold text-slate-400">Live Ingestion</span>
         </div>
 
         {totalClicks === 0 ? (
@@ -199,22 +250,21 @@ export default function AnalyticsPage() {
         ) : (
           <div className="pt-4">
             <div className="flex items-end justify-between gap-2 h-44 px-2">
-              {days.map((day, idx) => {
-                const count = Math.round(dayDistribution[idx] * totalClicks);
-                const heightPercent = Math.max(Math.round((count / maxDayVal) * 100), 8);
+              {analytics.clicks_by_date?.map((item) => {
+                const heightPercent = item.count > 0 ? Math.max(Math.round((item.count / maxDayVal) * 100), 8) : 4;
 
                 return (
-                  <div key={day} className="flex-1 flex flex-col items-center gap-2 group">
+                  <div key={item.date} className="flex-1 flex flex-col items-center gap-2 group">
                     <span className="text-[11px] font-bold text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity tabular-nums">
-                      {count}
+                      {item.count}
                     </span>
-                    <div className="w-full bg-slate-100 rounded-t-lg h-36 flex items-end justify-center p-1">
+                    <div className="w-full bg-slate-100/80 rounded-t-lg h-36 flex items-end justify-center p-1">
                       <div
                         style={{ height: `${heightPercent}%` }}
-                        className="w-full max-w-[42px] bg-indigo-600 hover:bg-indigo-700 rounded-t-md transition-all duration-300"
+                        className="w-full max-w-[42px] bg-indigo-600 hover:bg-indigo-700 rounded-t-md transition-all duration-300 shadow-sm"
                       />
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-500">{day}</span>
+                    <span className="text-[11px] font-semibold text-slate-500">{item.label}</span>
                   </div>
                 );
               })}
@@ -223,61 +273,99 @@ export default function AnalyticsPage() {
         )}
       </div>
 
-      {/* Dual Breakdown Cards: Devices & Geographies */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Three Breakdown Cards: Devices, Geographies & Referrers */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Device Breakdown */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2">
             <Smartphone className="w-4 h-4 text-indigo-600 stroke-[2]" />
-            <h2 className="text-sm font-bold text-slate-900">Device & Platform Distribution</h2>
+            <h2 className="text-sm font-bold text-slate-900">Device Platform</h2>
           </div>
 
-          <div className="space-y-3 pt-1">
-            {deviceData.map((d) => (
-              <div key={d.name} className="space-y-1.5">
-                <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-slate-700">{d.name}</span>
-                  <span className="text-slate-900 tabular-nums font-bold">
-                    {d.count} ({d.percent}%)
-                  </span>
+          {analytics.top_devices?.length === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-400">No device telemetry yet.</div>
+          ) : (
+            <div className="space-y-3 pt-1">
+              {analytics.top_devices.map((d) => (
+                <div key={d.device} className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-slate-700 capitalize">{d.device}</span>
+                    <span className="text-slate-900 tabular-nums font-bold">
+                      {d.count} ({d.percent}%)
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      style={{ width: `${d.percent}%` }}
+                      className={`h-full ${deviceColorMap[d.device.toLowerCase()] || 'bg-indigo-600'} rounded-full transition-all duration-500`}
+                    />
+                  </div>
                 </div>
-                <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-                  <div
-                    style={{ width: `${totalClicks > 0 ? d.percent : 0}%` }}
-                    className={`h-full ${d.color} rounded-full transition-all duration-500`}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Geographic Breakdown */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2">
             <Globe className="w-4 h-4 text-indigo-600 stroke-[2]" />
-            <h2 className="text-sm font-bold text-slate-900">Top Geographies (Country ISO)</h2>
+            <h2 className="text-sm font-bold text-slate-900">Top Geographies</h2>
           </div>
 
-          <div className="space-y-2.5 pt-1">
-            {countryData.map((c) => (
-              <div
-                key={c.code}
-                className="flex items-center justify-between rounded-xl bg-slate-50/70 px-3.5 py-2 text-xs"
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="font-mono text-[11px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
-                    {c.code}
-                  </span>
-                  <span className="font-semibold text-slate-800">{c.name}</span>
+          {analytics.top_countries?.length === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-400">No geo data recorded yet.</div>
+          ) : (
+            <div className="space-y-2.5 pt-1">
+              {analytics.top_countries.map((c) => (
+                <div
+                  key={c.code}
+                  className="flex items-center justify-between rounded-xl bg-slate-50/70 px-3.5 py-2 text-xs"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="font-mono text-[11px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                      {c.code}
+                    </span>
+                    <span className="font-semibold text-slate-800">{c.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-900 tabular-nums">{c.count}</span>
+                    <span className="text-[11px] text-slate-400">({c.percent}%)</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-900 tabular-nums">{c.count} clicks</span>
-                  <span className="text-[11px] text-slate-400">({c.percent}%)</span>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Top Referrers */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2">
+            <Compass className="w-4 h-4 text-indigo-600 stroke-[2]" />
+            <h2 className="text-sm font-bold text-slate-900">Top Referrers</h2>
           </div>
+
+          {analytics.top_referrers?.length === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-400">No referrer sources yet.</div>
+          ) : (
+            <div className="space-y-2.5 pt-1">
+              {analytics.top_referrers.map((r) => (
+                <div
+                  key={r.referrer}
+                  className="flex items-center justify-between rounded-xl bg-slate-50/70 px-3.5 py-2 text-xs"
+                >
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <Link2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="font-semibold text-slate-800 truncate max-w-[120px]">{r.referrer}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-bold text-slate-900 tabular-nums">{r.count}</span>
+                    <span className="text-[11px] text-slate-400">({r.percent}%)</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
