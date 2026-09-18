@@ -378,19 +378,39 @@ app.get('/:code_or_slug', async (c) => {
 
           // If not one-time, instant redirect & trigger async background click logging
           if (!meta.is_one_time) {
-            if (meta.id && meta.user_id && c.env?.NEON_DATABASE_URL && c.executionCtx?.waitUntil) {
+            if (meta.id && c.env?.NEON_DATABASE_URL && c.executionCtx?.waitUntil) {
               c.executionCtx.waitUntil((async () => {
                 try {
-                  const telemetry = await extractTelemetry(c.req.raw, new URL(c.req.url))
-                  const rawReferrer = c.req.header('referer') || c.req.header('referrer') || ''
-                  await logClickEventToDb({
-                    dbUrl: c.env.NEON_DATABASE_URL,
-                    linkId: meta.id,
-                    userId: meta.user_id,
-                    workspaceId: meta.workspace_id || `wrk_${meta.user_id.replace(/^(usr_|user_)/, '')}`,
-                    rawReferrer,
-                    telemetry,
-                  })
+                  let targetUserId = meta.user_id
+                  let targetWorkspaceId = meta.workspace_id
+
+                  if (!targetUserId && c.env.NEON_DATABASE_URL) {
+                    const { neon } = await import('@neondatabase/serverless')
+                    const sql = neon(c.env.NEON_DATABASE_URL)
+                    const linkRow = await sql`SELECT user_id, workspace_id FROM links WHERE id = ${meta.id} LIMIT 1`
+                    if (linkRow && linkRow.length > 0) {
+                      targetUserId = linkRow[0].user_id
+                      targetWorkspaceId = linkRow[0].workspace_id
+                      meta.user_id = targetUserId
+                      meta.workspace_id = targetWorkspaceId
+                      if (c.env.XORU_KV) {
+                        await c.env.XORU_KV.put(`lnk:${code}`, JSON.stringify(meta))
+                      }
+                    }
+                  }
+
+                  if (targetUserId) {
+                    const telemetry = await extractTelemetry(c.req.raw, new URL(c.req.url))
+                    const rawReferrer = c.req.header('referer') || c.req.header('referrer') || ''
+                    await logClickEventToDb({
+                      dbUrl: c.env.NEON_DATABASE_URL,
+                      linkId: meta.id,
+                      userId: targetUserId,
+                      workspaceId: targetWorkspaceId || `wrk_${targetUserId.replace(/^(usr_|user_)/, '')}`,
+                      rawReferrer,
+                      telemetry,
+                    })
+                  }
                 } catch (err) {
                   console.error('Async KV click log error:', err)
                 }

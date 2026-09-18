@@ -61,8 +61,9 @@ analyticsApp.get('/', async (c) => {
 
   try {
     const data = await withTenantDb(dbUrl, userId, async (sql) => {
-      // Days filter interval
+      // Days filter interval as ISO timestamp string for 100% parameterization safety
       const intervalDays = period === '30d' ? 30 : period === 'all' ? 365 : 7
+      const cutoffDate = new Date(Date.now() - intervalDays * 24 * 60 * 60 * 1000).toISOString()
 
       // 1. High level aggregates
       let summaryRows
@@ -74,7 +75,7 @@ analyticsApp.get('/', async (c) => {
             COUNT(CASE WHEN is_qr = TRUE THEN 1 END)::int as qr_clicks
           FROM click_events
           WHERE user_id = ${userId} AND link_id = ${linkId}
-            AND timestamp >= NOW() - (${intervalDays} || ' days')::interval
+            AND timestamp >= ${cutoffDate}::timestamptz
         `
       } else if (workspaceId) {
         summaryRows = await sql`
@@ -84,7 +85,7 @@ analyticsApp.get('/', async (c) => {
             COUNT(CASE WHEN is_qr = TRUE THEN 1 END)::int as qr_clicks
           FROM click_events
           WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
-            AND timestamp >= NOW() - (${intervalDays} || ' days')::interval
+            AND timestamp >= ${cutoffDate}::timestamptz
         `
       } else {
         summaryRows = await sql`
@@ -94,7 +95,7 @@ analyticsApp.get('/', async (c) => {
             COUNT(CASE WHEN is_qr = TRUE THEN 1 END)::int as qr_clicks
           FROM click_events
           WHERE user_id = ${userId}
-            AND timestamp >= NOW() - (${intervalDays} || ' days')::interval
+            AND timestamp >= ${cutoffDate}::timestamptz
         `
       }
 
@@ -111,7 +112,7 @@ analyticsApp.get('/', async (c) => {
             COUNT(id)::int as count
           FROM click_events
           WHERE user_id = ${userId} AND link_id = ${linkId}
-            AND timestamp >= NOW() - (${intervalDays} || ' days')::interval
+            AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY date_key
           ORDER BY date_key ASC
         `
@@ -122,7 +123,7 @@ analyticsApp.get('/', async (c) => {
             COUNT(id)::int as count
           FROM click_events
           WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
-            AND timestamp >= NOW() - (${intervalDays} || ' days')::interval
+            AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY date_key
           ORDER BY date_key ASC
         `
@@ -133,7 +134,7 @@ analyticsApp.get('/', async (c) => {
             COUNT(id)::int as count
           FROM click_events
           WHERE user_id = ${userId}
-            AND timestamp >= NOW() - (${intervalDays} || ' days')::interval
+            AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY date_key
           ORDER BY date_key ASC
         `
@@ -141,7 +142,7 @@ analyticsApp.get('/', async (c) => {
 
       // Map time series to continuous date entries
       const dateMap = new Map<string, number>()
-      for (const row of timeSeriesRows) {
+      for (const row of timeSeriesRows || []) {
         dateMap.set(row.date_key, Number(row.count) || 0)
       }
 
@@ -168,7 +169,18 @@ analyticsApp.get('/', async (c) => {
             COUNT(id)::int as count
           FROM click_events
           WHERE user_id = ${userId} AND link_id = ${linkId}
-            AND timestamp >= NOW() - (${intervalDays} || ' days')::interval
+            AND timestamp >= ${cutoffDate}::timestamptz
+          GROUP BY device
+          ORDER BY count DESC
+        `
+      } else if (workspaceId) {
+        deviceRows = await sql`
+          SELECT 
+            COALESCE(device_type, 'desktop') as device,
+            COUNT(id)::int as count
+          FROM click_events
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
+            AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY device
           ORDER BY count DESC
         `
@@ -179,13 +191,13 @@ analyticsApp.get('/', async (c) => {
             COUNT(id)::int as count
           FROM click_events
           WHERE user_id = ${userId}
-            AND timestamp >= NOW() - (${intervalDays} || ' days')::interval
+            AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY device
           ORDER BY count DESC
         `
       }
 
-      const topDevices = deviceRows.map((r) => {
+      const topDevices = (deviceRows || []).map((r) => {
         const count = Number(r.count) || 0
         const percent = totalClicks > 0 ? Math.round((count / totalClicks) * 100) : 0
         return {
@@ -204,7 +216,19 @@ analyticsApp.get('/', async (c) => {
             COUNT(id)::int as count
           FROM click_events
           WHERE user_id = ${userId} AND link_id = ${linkId}
-            AND timestamp >= NOW() - (${intervalDays} || ' days')::interval
+            AND timestamp >= ${cutoffDate}::timestamptz
+          GROUP BY country
+          ORDER BY count DESC
+          LIMIT 10
+        `
+      } else if (workspaceId) {
+        countryRows = await sql`
+          SELECT 
+            COALESCE(country, 'Unknown') as country,
+            COUNT(id)::int as count
+          FROM click_events
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
+            AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY country
           ORDER BY count DESC
           LIMIT 10
@@ -216,14 +240,14 @@ analyticsApp.get('/', async (c) => {
             COUNT(id)::int as count
           FROM click_events
           WHERE user_id = ${userId}
-            AND timestamp >= NOW() - (${intervalDays} || ' days')::interval
+            AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY country
           ORDER BY count DESC
           LIMIT 10
         `
       }
 
-      const topCountries = countryRows.map((r) => {
+      const topCountries = (countryRows || []).map((r) => {
         const code = String(r.country).toUpperCase()
         const count = Number(r.count) || 0
         const percent = totalClicks > 0 ? Math.round((count / totalClicks) * 100) : 0
@@ -244,7 +268,19 @@ analyticsApp.get('/', async (c) => {
             COUNT(id)::int as count
           FROM click_events
           WHERE user_id = ${userId} AND link_id = ${linkId}
-            AND timestamp >= NOW() - (${intervalDays} || ' days')::interval
+            AND timestamp >= ${cutoffDate}::timestamptz
+          GROUP BY referrer
+          ORDER BY count DESC
+          LIMIT 8
+        `
+      } else if (workspaceId) {
+        referrerRows = await sql`
+          SELECT 
+            COALESCE(referrer_domain, 'Direct') as referrer,
+            COUNT(id)::int as count
+          FROM click_events
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
+            AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY referrer
           ORDER BY count DESC
           LIMIT 8
@@ -256,14 +292,14 @@ analyticsApp.get('/', async (c) => {
             COUNT(id)::int as count
           FROM click_events
           WHERE user_id = ${userId}
-            AND timestamp >= NOW() - (${intervalDays} || ' days')::interval
+            AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY referrer
           ORDER BY count DESC
           LIMIT 8
         `
       }
 
-      const topReferrers = referrerRows.map((r) => {
+      const topReferrers = (referrerRows || []).map((r) => {
         const count = Number(r.count) || 0
         const percent = totalClicks > 0 ? Math.round((count / totalClicks) * 100) : 0
         return {
@@ -282,7 +318,19 @@ analyticsApp.get('/', async (c) => {
             COUNT(id)::int as count
           FROM click_events
           WHERE user_id = ${userId} AND link_id = ${linkId}
-            AND timestamp >= NOW() - (${intervalDays} || ' days')::interval
+            AND timestamp >= ${cutoffDate}::timestamptz
+          GROUP BY os
+          ORDER BY count DESC
+          LIMIT 6
+        `
+      } else if (workspaceId) {
+        osRows = await sql`
+          SELECT 
+            COALESCE(os, 'Other') as os,
+            COUNT(id)::int as count
+          FROM click_events
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
+            AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY os
           ORDER BY count DESC
           LIMIT 6
@@ -294,14 +342,14 @@ analyticsApp.get('/', async (c) => {
             COUNT(id)::int as count
           FROM click_events
           WHERE user_id = ${userId}
-            AND timestamp >= NOW() - (${intervalDays} || ' days')::interval
+            AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY os
           ORDER BY count DESC
           LIMIT 6
         `
       }
 
-      const topOs = osRows.map((r) => ({
+      const topOs = (osRows || []).map((r) => ({
         os: r.os,
         count: Number(r.count) || 0,
         percent: totalClicks > 0 ? Math.round(((Number(r.count) || 0) / totalClicks) * 100) : 0,
@@ -330,4 +378,3 @@ analyticsApp.get('/', async (c) => {
 })
 
 export default analyticsApp
-
