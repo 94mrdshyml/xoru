@@ -13,6 +13,7 @@ export function Header({ onOpenMobileSidebar, onOpenCreateModal }: HeaderProps) 
   const pathname = usePathname();
 
   const getPageTitle = () => {
+    if (pathname === '/dashboard/links') return 'Short Links';
     if (pathname === '/dashboard/analytics') return 'Analytics';
     if (pathname === '/dashboard/routes') return 'Smart Routes';
     if (pathname === '/dashboard/pixels') return 'Retargeting Pixels';

@@ -28,6 +28,7 @@ export interface ShortLink {
   short_code: string;
   custom_slug?: string | null;
   redirect_type: number;
+  is_active?: boolean;
   is_protected?: boolean;
   is_one_time?: boolean;
   is_consumed?: boolean;

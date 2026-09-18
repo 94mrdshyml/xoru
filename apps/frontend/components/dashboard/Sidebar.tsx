@@ -33,9 +33,14 @@ export function Sidebar({
 
   const navItems = [
     {
-      name: 'Overview & Links',
+      name: 'Overview',
       href: '/dashboard',
       icon: Layout,
+    },
+    {
+      name: 'Links',
+      href: '/dashboard/links',
+      icon: Link2,
     },
     {
       name: 'Analytics',

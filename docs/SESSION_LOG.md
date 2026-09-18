@@ -842,11 +842,57 @@ This log tracks feature additions, technical decisions, architectural changes, a
 
 ### Notes for Future Sessions
 - Live Backend: `https://xoru-backend.mridu.workers.dev`
-- Live Frontend: `https://xoru-frontend.mridu.workers.dev`
-- Test API Key: `key_test_LSNB7Lu4Nw8OqYwKF8kMmKcQvvrGTzW4`
-- Required Headers for REST API calls:
-  - `Authorization: Bearer <key>` or `X-API-Key: <key>`
-  - `X-Workspace-Id: wrk_...` (or pass `?workspace_id=wrk_...`)
 - **Session 20 Focus**: Dynamic Smart Routing rules engine (`smart_routes` table: Device OS, Geo ISO Country Code, A/B Traffic Split) and connecting `/dashboard/routes` UI to live backend routing execution.
+
+---
+
+## Session 20 — Dedicated Short Links Page & Executive Workspace Overview Dashboard
+
+**Date & Time (IST):** 2026-09-18 15:05 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **Dedicated Short Links Management Page ([`apps/frontend/app/dashboard/links/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/links/page.tsx))**:
+  - Created a dedicated `/dashboard/links` route focused entirely on deep link management, creation, live filtering, QR code generation, password challenge status, one-time burn badges, and telemetry drawer inspection.
+  - Added dedicated header and metric counters (`Total Links`, `Active Links`, `Total Clicks`, `Edge Sync`).
+- **Revamped Executive Overview Dashboard ([`apps/frontend/app/dashboard/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/page.tsx))**:
+  - Re-architected `/dashboard` to serve as the true home of the workspace with a high-level bird's-eye view across all intelligence subsystems.
+  - **Executive Workspace Health & Action Hero**: Displays active workspace badge, environment tag, global edge health indicator, and 1-click action shortcuts (`Manage Links`, `Full Analytics`, `Pixels`).
+  - **4x Top Bird's-Eye KPI Metric Tiles**:
+    1. `Short Links`: total count, active count, with direct navigation to `/dashboard/links`.
+    2. `Click Telemetry (7d)`: total click count, unique visitors, with direct navigation to `/dashboard/analytics`.
+    3. `Tracking Pixels`: active pixels count, total captured events, with direct navigation to `/dashboard/pixels`.
+    4. `API Quota & Keys`: monthly quota percentage meter, active developer keys, with direct navigation to `/dashboard/settings`.
+  - **Recent Short Links Widget**: Top 5 recent short links with 1-click URL copy, click counters, and "+ View all links &rarr;" link.
+  - **7-Day Click Velocity Mini Chart**: Interactive day-by-day click volume bar sparkline.
+  - **Retargeting & Pixel Activity Widget**: Quick overview of `/x.js` tracker, `/p/:id.gif` email pixels, and connected ad platforms.
+  - **Developer API Engine Meter**: Monthly request progress bar and active key count.
+  - **Edge Network Status Card**: Real-time Sub-10ms Global KV and Neon Postgres RLS health verification.
+- **Sidebar & Header Navigation Update ([`apps/frontend/components/dashboard/Sidebar.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/dashboard/Sidebar.tsx), [`apps/frontend/components/dashboard/Header.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/components/dashboard/Header.tsx))**:
+  - Separated `Overview & Links` into distinct `Overview` (`/dashboard`) and `Links` (`/dashboard/links`) items.
+  - Updated breadcrumbs to reflect `Dashboard / Short Links` on `/dashboard/links` and `Dashboard / Overview` on `/dashboard`.
+
+### How We Built It
+- Modular Next.js App Router structure with dedicated route segments.
+- Parallel client-side data hydration fetching links, telemetry, pixel metrics, and API quota in a single unified view.
+- Strict anti-slop design system following Taste Skill + Impeccable guidelines (Indigo `#4F46E5` accents, clean cards, subtle hover interactions, and micro-animations).
+
+### In Scope
+- Dedicated `/dashboard/links` page, revamped `/dashboard` bird's-eye overview page, Sidebar navigation updates, Header breadcrumbs, and full typecheck verification.
+
+### Out of Scope
+- Smart Routing execution engine (scheduled for Session 21).
+
+### Breaking Changes
+- NONE (links table moved to dedicated `/dashboard/links`, `/dashboard` now presents the executive workspace bird's-eye overview).
+
+### Notes for Future Sessions
+- Live Backend: `https://xoru-backend.mridu.workers.dev`
+- Live Frontend: `https://xoru-frontend.mridu.workers.dev`
+- Overview Dashboard URL: `https://xoru-frontend.mridu.workers.dev/dashboard`
+- Short Links Management URL: `https://xoru-frontend.mridu.workers.dev/dashboard/links`
+- **Session 21 Focus**: Dynamic Smart Routing rules engine (`smart_routes` table: Device OS, Geo ISO Country Code, A/B Traffic Split) and connecting `/dashboard/routes` UI to live backend routing execution.
+
 
 
