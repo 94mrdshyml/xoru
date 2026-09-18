@@ -665,7 +665,71 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - Live Backend: `https://xoru-backend.mridu.workers.dev`
 - Live Frontend: `https://xoru-frontend.mridu.workers.dev`
 - All workspace operations are isolated by `user_id` and RLS.
-- **Session 17 Focus**: Dynamic Smart Routing rules engine (`smart_routes` table: Device OS, Geo ISO Country Code, A/B Traffic Split) and connecting `/dashboard/routes` UI to backend CRUD.
+- **Session 17 Focus**: First-Party Xoru Tracking Pixel SDK, Email GIF Tracking & Third-Party Retargeting Tags.
+
+---
+
+## Session 17 — First-Party Xoru Pixel SDK, Email GIF Tracking & Multi-Platform Retargeting Engine
+
+**Date & Time (IST):** 2026-09-18 12:40 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **Edge-Served First-Party Tracker Script ([`GET /x.js`](file:///c:/vibe%20coding/xoru/apps/backend/src/routes/pixels.ts))**:
+  - Production-ready $<1.5\text{KB}$ lightweight vanilla JavaScript tracker served directly from Cloudflare Worker (`https://xoru-backend.mridu.workers.dev/x.js`).
+  - Reads `data-pixel="pxl_xxx"` attribute from its embed tag.
+  - Automatically captures pageview, document title, page URL, referrer, screen dimensions, and attribution parameters (`?_xoru_cid=...`, `?ref=...`).
+  - Exposes global SDK: `window.xoru = { track: (name, data) => void, page: () => void, identify: (id, traits) => void }`.
+  - Transmits data asynchronously via `navigator.sendBeacon` or CORS `fetch`.
+- **1x1 Transparent Email & Newsletter GIF Pixel ([`GET /p/:pixel_id.gif`](file:///c:/vibe%20coding/xoru/apps/backend/src/index.ts))**:
+  - Zero-JS 42-byte binary GIF served with `image/gif` and `Cache-Control: no-cache`.
+  - Logs `email_open` / image telemetry asynchronously via `c.executionCtx.waitUntil(...)`.
+- **High-Throughput Public Collector API ([`POST /api/v1/pixels/track`](file:///c:/vibe%20coding/xoru/apps/backend/src/routes/pixels.ts))**:
+  - Open CORS-enabled endpoint (`Access-Control-Allow-Origin: *`).
+  - Extracts edge telemetry (Device type, OS, Browser, Geo ISO Country/City, GDPR-compliant SHA-256 IP hash).
+  - Validates active pixel state and asynchronously persists event into `pixel_events`.
+- **Authenticated Pixel Management CRUD ([`/api/v1/pixels`](file:///c:/vibe%20coding/xoru/apps/backend/src/routes/pixels.ts))**:
+  - `GET /api/v1/pixels`: Lists all pixels (both Xoru native and 3rd-party) scoped to active workspace.
+  - `POST /api/v1/pixels`: Provisions native Xoru or 3rd-party ad tags (Meta, Google Ads/GA4, TikTok, Twitter/X, LinkedIn, Custom).
+  - `PATCH /api/v1/pixels/:id`: Updates name, pixel ID, or toggles active status.
+  - `DELETE /api/v1/pixels/:id`: Deletes pixel and cascades events.
+  - `GET /api/v1/pixels/:id/events`: Fetches recent live telemetry event feed.
+- **Additive Database Schema Migration ([`packages/db/schema.sql`](file:///c:/vibe%20coding/xoru/packages/db/schema.sql), [`apps/backend/src/db/migrate.ts`](file:///c:/vibe%20coding/xoru/apps/backend/src/db/migrate.ts))**:
+  - Enhanced `retargeting_pixels` table with `name`, `is_active`, and made `link_id` optional for workspace-wide pixels.
+  - Created `pixel_events` table with Neon RLS policies for multi-tenant telemetry isolation.
+- **Frontend Retargeting Dashboard ([`apps/frontend/app/dashboard/pixels/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/pixels/page.tsx))**:
+  - Xoru First-Party Pixel Hero card with 1-click copy for `<script>` tag and 1x1 Email GIF.
+  - Interactive Custom Event tracking generator (`xoru.track('Purchase', { amount: 99 })`).
+  - Live "Emit Test Event" trigger button to immediately verify tracking connectivity.
+  - Real-time live event telemetry feed table.
+  - Third-party ad tag management for Meta, Google, TikTok, Twitter/X, and LinkedIn.
+- **Test Suites & Verification**:
+  - Added `pixels.test.ts` Vitest suite in backend (**39/39 unit tests green**).
+  - TypeScript typecheck passed with 0 errors across frontend and backend.
+
+### How We Built It
+- Lightweight vanillajs client served from worker edge.
+- Binary GIF buffer response with `executionCtx.waitUntil` for zero-overhead email open logging.
+- Neon Postgres RLS isolation across workspaces.
+
+### In Scope
+- Edge tracker script, email GIF pixel, CORS event collector, pixel CRUD APIs, live schema migration, frontend pixel dashboard, unit tests, and typecheck.
+
+### Out of Scope
+- Dynamic Smart Routing rules engine (Device OS, Geo ISO, A/B Split) scheduled for Session 18.
+
+### Breaking Changes
+- NONE
+
+### Notes for Future Sessions
+- Live Backend: `https://xoru-backend.mridu.workers.dev`
+- Live Frontend: `https://xoru-frontend.mridu.workers.dev`
+- Tracker Script URL: `https://xoru-backend.mridu.workers.dev/x.js`
+- Email Pixel URL: `https://xoru-backend.mridu.workers.dev/p/:pixel_id.gif`
+- Collector Endpoint: `https://xoru-backend.mridu.workers.dev/api/v1/pixels/track`
+- **Session 18 Focus**: Dynamic Smart Routing rules engine (`smart_routes` table: Device OS, Geo ISO Country Code, A/B Traffic Split) and connecting `/dashboard/routes` UI to backend CRUD.
+
 
 
 

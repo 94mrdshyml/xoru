@@ -66,18 +66,47 @@ CREATE TABLE IF NOT EXISTS smart_routes (
 CREATE INDEX IF NOT EXISTS idx_smart_routes_link_id ON smart_routes(link_id);
 CREATE INDEX IF NOT EXISTS idx_smart_routes_user_id ON smart_routes(user_id);
 
--- 4. Retargeting Pixels Table
+-- 4. Retargeting Pixels Table (Native Xoru Pixels & 3rd-party: Meta, Google, TikTok, Twitter, LinkedIn)
 CREATE TABLE IF NOT EXISTS retargeting_pixels (
     id VARCHAR(64) PRIMARY KEY, -- pxl_xxx
-    link_id VARCHAR(64) NOT NULL REFERENCES links(id) ON DELETE CASCADE,
     user_id VARCHAR(64) NOT NULL,
     workspace_id VARCHAR(64) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-    platform VARCHAR(32) NOT NULL, -- 'facebook', 'google', 'tiktok', 'custom'
+    link_id VARCHAR(64) REFERENCES links(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    platform VARCHAR(32) NOT NULL, -- 'xoru', 'meta', 'google', 'tiktok', 'twitter', 'linkedin', 'custom'
     pixel_id VARCHAR(128) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 5. Click Events Table (Neon DB Analytics)
+CREATE INDEX IF NOT EXISTS idx_retargeting_pixels_workspace_id ON retargeting_pixels(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_retargeting_pixels_user_id ON retargeting_pixels(user_id);
+
+-- 5. Pixel Events Table (Xoru Native Pixel Telemetry & Conversion Stream)
+CREATE TABLE IF NOT EXISTS pixel_events (
+    id VARCHAR(64) PRIMARY KEY, -- pxevt_xxx
+    pixel_id VARCHAR(64) NOT NULL REFERENCES retargeting_pixels(id) ON DELETE CASCADE,
+    workspace_id VARCHAR(64) NOT NULL,
+    user_id VARCHAR(64) NOT NULL,
+    link_id VARCHAR(64),
+    event_name VARCHAR(64) NOT NULL, -- 'pageview', 'conversion', 'custom', 'email_open'
+    event_data JSONB,
+    page_url TEXT,
+    referrer TEXT,
+    device_type VARCHAR(32),
+    browser VARCHAR(64),
+    os VARCHAR(64),
+    country VARCHAR(8),
+    city VARCHAR(128),
+    ip_hash VARCHAR(64) NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_pixel_events_pixel_time ON pixel_events(pixel_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_pixel_events_workspace_time ON pixel_events(workspace_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_pixel_events_user_time ON pixel_events(user_id, timestamp DESC);
+
+-- 6. Click Events Table (Neon DB Analytics)
 CREATE TABLE IF NOT EXISTS click_events (
     id VARCHAR(64) PRIMARY KEY, -- evt_xxx
     user_id VARCHAR(64) NOT NULL,
@@ -109,6 +138,7 @@ ALTER TABLE links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE smart_routes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE retargeting_pixels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE click_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pixel_events ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if re-applying
 DROP POLICY IF EXISTS tenant_isolation_workspaces ON workspaces;
@@ -116,6 +146,7 @@ DROP POLICY IF EXISTS tenant_isolation_links ON links;
 DROP POLICY IF EXISTS tenant_isolation_smart_routes ON smart_routes;
 DROP POLICY IF EXISTS tenant_isolation_retargeting_pixels ON retargeting_pixels;
 DROP POLICY IF EXISTS tenant_isolation_click_events ON click_events;
+DROP POLICY IF EXISTS tenant_isolation_pixel_events ON pixel_events;
 
 -- Create Tenant Isolation Policies (enforcing user_id)
 CREATE POLICY tenant_isolation_workspaces ON workspaces
@@ -135,5 +166,9 @@ CREATE POLICY tenant_isolation_retargeting_pixels ON retargeting_pixels
     USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));
 
 CREATE POLICY tenant_isolation_click_events ON click_events
+    FOR ALL
+    USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));
+
+CREATE POLICY tenant_isolation_pixel_events ON pixel_events
     FOR ALL
     USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));

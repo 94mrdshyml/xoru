@@ -289,6 +289,7 @@ app.delete('/api/v1/workspaces/:id', tenantMiddleware, async (c) => {
 
 import linksApp from './routes/links'
 import analyticsApp from './routes/analytics'
+import { pixelsRouter, getTrackerScript, TRANSPARENT_GIF_BUFFER } from './routes/pixels'
 import { runDatabaseMigration } from './db/migrate'
 import { extractTelemetry, logClickEventToDb } from './utils/telemetry'
 
@@ -318,7 +319,7 @@ app.post('/api/v1/admin/reset', async (c) => {
       const { neon } = await import('@neondatabase/serverless')
       const sql = neon(dbUrl)
       await sql`DROP TABLE IF EXISTS organizations CASCADE;`
-      await sql`TRUNCATE TABLE click_events, retargeting_pixels, smart_routes, links, workspaces CASCADE;`
+      await sql`TRUNCATE TABLE click_events, pixel_events, retargeting_pixels, smart_routes, links, workspaces CASCADE;`
       results.db_reset = true
     } catch (err: any) {
       results.db_error = err.message || String(err)
@@ -344,11 +345,78 @@ app.post('/api/v1/admin/reset', async (c) => {
   return c.json({ status: 'success', message: 'Database reset and Clerk users purged successfully.', details: results })
 })
 
+// 1. First-Party Tracker Script: GET /x.js
+app.get('/x.js', (c) => {
+  const origin = new URL(c.req.url).origin
+  const scriptContent = getTrackerScript(origin)
+  return new Response(scriptContent, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/javascript; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, s-maxage=86400',
+      'Access-Control-Allow-Origin': '*',
+    },
+  })
+})
+
+// 2. First-Party 1x1 Transparent Email/Image GIF Pixel: GET /p/:pixel_id.gif
+app.get('/p/:pixel_id', async (c) => {
+  const rawParam = c.req.param('pixel_id') || ''
+  const pixelId = rawParam.replace(/\.(gif|png|jpg|webp)$/i, '')
+
+  const dbUrl = c.env?.NEON_DATABASE_URL
+  if (dbUrl && c.executionCtx?.waitUntil) {
+    c.executionCtx.waitUntil((async () => {
+      try {
+        const telemetry = await extractTelemetry(c.req.raw, new URL(c.req.url))
+        const { neon } = await import('@neondatabase/serverless')
+        const sql = neon(dbUrl)
+
+        const pixelRows = await sql`
+          SELECT id, user_id, workspace_id, link_id, is_active
+          FROM retargeting_pixels
+          WHERE id = ${pixelId} OR pixel_id = ${pixelId}
+          LIMIT 1
+        `
+        if (pixelRows.length > 0 && pixelRows[0].is_active) {
+          const pixel = pixelRows[0]
+          const eventId = generateId('pxevt')
+          await sql`
+            INSERT INTO pixel_events (
+              id, pixel_id, workspace_id, user_id, link_id,
+              event_name, event_data, page_url, referrer,
+              device_type, browser, os, country, city, ip_hash
+            ) VALUES (
+              ${eventId}, ${pixel.id}, ${pixel.workspace_id}, ${pixel.user_id}, ${pixel.link_id || null},
+              'email_open', ${JSON.stringify({ type: 'email_gif' })}, ${c.req.url}, ${c.req.header('referer') || ''},
+              ${telemetry.device_type}, ${telemetry.browser}, ${telemetry.os}, ${telemetry.country}, ${telemetry.city}, ${telemetry.ip_hash}
+            )
+          `
+        }
+      } catch (err) {
+        console.error('Async email GIF pixel error:', err)
+      }
+    })())
+  }
+
+  return new Response(TRANSPARENT_GIF_BUFFER, {
+    status: 200,
+    headers: {
+      'Content-Type': 'image/gif',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Access-Control-Allow-Origin': '*',
+    },
+  })
+})
+
 // Mount Short Link CRUD Router
 app.route('/api/v1/links', linksApp)
 
 // Mount Analytics Router
 app.route('/api/v1/analytics', analyticsApp)
+
+// Mount Pixels Router
+app.route('/api/v1/pixels', pixelsRouter)
 
 import { verifyPassword } from './utils/crypto'
 

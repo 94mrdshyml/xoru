@@ -76,14 +76,46 @@ export async function runDatabaseMigration(databaseUrl: string) {
   await sql`
     CREATE TABLE IF NOT EXISTS retargeting_pixels (
       id VARCHAR(64) PRIMARY KEY,
-      link_id VARCHAR(64) NOT NULL REFERENCES links(id) ON DELETE CASCADE,
+      link_id VARCHAR(64) REFERENCES links(id) ON DELETE CASCADE,
       user_id VARCHAR(64) NOT NULL,
       workspace_id VARCHAR(64) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL DEFAULT 'Pixel',
       platform VARCHAR(32) NOT NULL,
       pixel_id VARCHAR(128) NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `
+  await sql`ALTER TABLE retargeting_pixels ADD COLUMN IF NOT EXISTS name VARCHAR(255) NOT NULL DEFAULT 'Pixel';`
+  await sql`ALTER TABLE retargeting_pixels ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;`
+  await sql`ALTER TABLE retargeting_pixels ALTER COLUMN link_id DROP NOT NULL;`
+  await sql`CREATE INDEX IF NOT EXISTS idx_retargeting_pixels_workspace_id ON retargeting_pixels(workspace_id);`
+  await sql`CREATE INDEX IF NOT EXISTS idx_retargeting_pixels_user_id ON retargeting_pixels(user_id);`
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS pixel_events (
+      id VARCHAR(64) PRIMARY KEY,
+      pixel_id VARCHAR(64) NOT NULL REFERENCES retargeting_pixels(id) ON DELETE CASCADE,
+      workspace_id VARCHAR(64) NOT NULL,
+      user_id VARCHAR(64) NOT NULL,
+      link_id VARCHAR(64),
+      event_name VARCHAR(64) NOT NULL,
+      event_data JSONB,
+      page_url TEXT,
+      referrer TEXT,
+      device_type VARCHAR(32),
+      browser VARCHAR(64),
+      os VARCHAR(64),
+      country VARCHAR(8),
+      city VARCHAR(128),
+      ip_hash VARCHAR(64) NOT NULL,
+      timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `
+  await sql`CREATE INDEX IF NOT EXISTS idx_pixel_events_pixel_time ON pixel_events(pixel_id, timestamp DESC);`
+  await sql`CREATE INDEX IF NOT EXISTS idx_pixel_events_workspace_time ON pixel_events(workspace_id, timestamp DESC);`
+  await sql`CREATE INDEX IF NOT EXISTS idx_pixel_events_user_time ON pixel_events(user_id, timestamp DESC);`
+
   await sql`
     CREATE TABLE IF NOT EXISTS click_events (
       id VARCHAR(64) PRIMARY KEY,
@@ -115,16 +147,19 @@ export async function runDatabaseMigration(databaseUrl: string) {
   await sql`ALTER TABLE smart_routes ENABLE ROW LEVEL SECURITY;`
   await sql`ALTER TABLE retargeting_pixels ENABLE ROW LEVEL SECURITY;`
   await sql`ALTER TABLE click_events ENABLE ROW LEVEL SECURITY;`
+  await sql`ALTER TABLE pixel_events ENABLE ROW LEVEL SECURITY;`
 
   await sql`DROP POLICY IF EXISTS tenant_isolation_workspaces ON workspaces;`
   await sql`DROP POLICY IF EXISTS tenant_isolation_links ON links;`
   await sql`DROP POLICY IF EXISTS tenant_isolation_smart_routes ON smart_routes;`
   await sql`DROP POLICY IF EXISTS tenant_isolation_retargeting_pixels ON retargeting_pixels;`
   await sql`DROP POLICY IF EXISTS tenant_isolation_click_events ON click_events;`
+  await sql`DROP POLICY IF EXISTS tenant_isolation_pixel_events ON pixel_events;`
 
   await sql`CREATE POLICY tenant_isolation_workspaces ON workspaces FOR ALL USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));`
   await sql`CREATE POLICY tenant_isolation_links ON links FOR ALL USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));`
   await sql`CREATE POLICY tenant_isolation_smart_routes ON smart_routes FOR ALL USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));`
   await sql`CREATE POLICY tenant_isolation_retargeting_pixels ON retargeting_pixels FOR ALL USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));`
   await sql`CREATE POLICY tenant_isolation_click_events ON click_events FOR ALL USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));`
+  await sql`CREATE POLICY tenant_isolation_pixel_events ON pixel_events FOR ALL USING (user_id = CURRENT_SETTING('app.current_tenant_id', true));`
 }
