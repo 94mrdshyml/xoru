@@ -19,7 +19,7 @@ linksApp.use('*', tenantMiddleware)
 // 1. Create a Short Link
 linksApp.post('/', async (c) => {
   const tenant = c.get('tenant')
-  const body = await c.req.json<{
+  let body: {
     workspace_id?: string
     title: string
     description?: string
@@ -29,7 +29,16 @@ linksApp.post('/', async (c) => {
     password?: string
     is_one_time?: boolean
     expires_at?: string
-  }>()
+  }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json(
+      { error: { code: 'INVALID_JSON', message: 'Malformed JSON payload.' } },
+      400
+    )
+  }
+
 
   if (!body.title || !body.destination_url) {
     return c.json(

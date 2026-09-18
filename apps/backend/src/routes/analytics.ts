@@ -170,7 +170,7 @@ analyticsApp.get('/', async (c) => {
           FROM click_events
           WHERE user_id = ${userId} AND link_id = ${linkId}
             AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY device
+          GROUP BY COALESCE(device_type, 'desktop')
           ORDER BY count DESC
         `
       } else if (workspaceId) {
@@ -181,7 +181,7 @@ analyticsApp.get('/', async (c) => {
           FROM click_events
           WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
             AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY device
+          GROUP BY COALESCE(device_type, 'desktop')
           ORDER BY count DESC
         `
       } else {
@@ -192,7 +192,7 @@ analyticsApp.get('/', async (c) => {
           FROM click_events
           WHERE user_id = ${userId}
             AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY device
+          GROUP BY COALESCE(device_type, 'desktop')
           ORDER BY count DESC
         `
       }
@@ -217,7 +217,7 @@ analyticsApp.get('/', async (c) => {
           FROM click_events
           WHERE user_id = ${userId} AND link_id = ${linkId}
             AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY country
+          GROUP BY COALESCE(country, 'Unknown')
           ORDER BY count DESC
           LIMIT 10
         `
@@ -229,7 +229,7 @@ analyticsApp.get('/', async (c) => {
           FROM click_events
           WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
             AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY country
+          GROUP BY COALESCE(country, 'Unknown')
           ORDER BY count DESC
           LIMIT 10
         `
@@ -241,7 +241,7 @@ analyticsApp.get('/', async (c) => {
           FROM click_events
           WHERE user_id = ${userId}
             AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY country
+          GROUP BY COALESCE(country, 'Unknown')
           ORDER BY count DESC
           LIMIT 10
         `
@@ -269,7 +269,7 @@ analyticsApp.get('/', async (c) => {
           FROM click_events
           WHERE user_id = ${userId} AND link_id = ${linkId}
             AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY referrer
+          GROUP BY COALESCE(referrer_domain, 'Direct')
           ORDER BY count DESC
           LIMIT 8
         `
@@ -281,7 +281,7 @@ analyticsApp.get('/', async (c) => {
           FROM click_events
           WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
             AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY referrer
+          GROUP BY COALESCE(referrer_domain, 'Direct')
           ORDER BY count DESC
           LIMIT 8
         `
@@ -293,7 +293,7 @@ analyticsApp.get('/', async (c) => {
           FROM click_events
           WHERE user_id = ${userId}
             AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY referrer
+          GROUP BY COALESCE(referrer_domain, 'Direct')
           ORDER BY count DESC
           LIMIT 8
         `
@@ -319,7 +319,7 @@ analyticsApp.get('/', async (c) => {
           FROM click_events
           WHERE user_id = ${userId} AND link_id = ${linkId}
             AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY os
+          GROUP BY COALESCE(os, 'Other')
           ORDER BY count DESC
           LIMIT 6
         `
@@ -331,7 +331,7 @@ analyticsApp.get('/', async (c) => {
           FROM click_events
           WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
             AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY os
+          GROUP BY COALESCE(os, 'Other')
           ORDER BY count DESC
           LIMIT 6
         `
@@ -343,7 +343,7 @@ analyticsApp.get('/', async (c) => {
           FROM click_events
           WHERE user_id = ${userId}
             AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY os
+          GROUP BY COALESCE(os, 'Other')
           ORDER BY count DESC
           LIMIT 6
         `

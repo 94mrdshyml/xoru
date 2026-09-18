@@ -17,6 +17,7 @@ export function Header({ onOpenMobileSidebar, onOpenCreateModal }: HeaderProps) 
     if (pathname === '/dashboard/routes') return 'Smart Routes';
     if (pathname === '/dashboard/pixels') return 'Retargeting Pixels';
     if (pathname === '/dashboard/settings') return 'Developer Settings';
+    if (pathname === '/dashboard/docs') return 'API Documentation';
     return 'Overview';
   };
 

@@ -11,6 +11,7 @@ import {
   GitBranch,
   Target,
   Key,
+  BookOpen,
   X,
   Sparkles,
 } from '@deemlol/next-icons';
@@ -55,6 +56,11 @@ export function Sidebar({
       name: 'API Keys',
       href: '/dashboard/settings',
       icon: Key,
+    },
+    {
+      name: 'API Docs',
+      href: '/dashboard/docs',
+      icon: BookOpen,
     },
   ];
 

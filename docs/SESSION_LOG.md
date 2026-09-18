@@ -765,6 +765,12 @@ This log tracks feature additions, technical decisions, architectural changes, a
     - Interactive audit table showing timestamp, HTTP method pill, endpoint path, status code badge (200 OK / 429 Too Many Requests / 401 / 500), latency in ms, and IP hash.
     - Expandable inspection drawer rendering syntax-highlighted formatted JSON for both request payload and response body.
   - **Multi-Language Quickstart Code Snippets**: Pre-configured tabs for cURL, TypeScript/Fetch, and Python Requests.
+- **Interactive Developer API Documentation & Live Console ([`apps/frontend/app/dashboard/docs/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/docs/page.tsx))**:
+  - Added dedicated **API Docs** item to the dashboard sidebar (`Sidebar.tsx`) with `@deemlol/next-icons` `BookOpen` icon and updated dynamic header breadcrumbs (`Header.tsx`).
+  - Comprehensive reference guide covering all REST endpoints (`/api/v1/links`, `/api/v1/analytics`, `/api/v1/workspaces`, `/api/v1/pixels`, `/api/v1/api-keys/usage`, `/api/v1/api-keys/logs`, `/api/v1/health`).
+  - Interactive **Live API Tester & Console**: allows developers to paste their API key, select methods/endpoints, enter JSON payloads, and execute live requests against Cloudflare Workers with real-time response time in ms, HTTP status badges, and syntax-highlighted JSON output.
+  - Multi-language request snippets (cURL, TypeScript/Fetch, Python Requests) with 1-click clipboard copy.
+  - Query parameters tables, response status codes, and JSON schemas.
 - **Unit & Integration Test Suite ([`apps/backend/tests/api-keys.test.ts`](file:///c:/vibe%20coding/xoru/apps/backend/tests/api-keys.test.ts))**:
   - Added complete test coverage verifying SHA-256 key hashing, key generation, authentication, rate limit headers, log retrieval, and usage billing endpoints.
   - Backend test suite passing **45/45 unit tests green** (`bun test`).
@@ -775,9 +781,10 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - Cloudflare KV edge cache for sub-10ms key resolution and sliding-window rate limit counters.
 - Non-blocking `c.executionCtx.waitUntil(...)` for asynchronous request and response payload persistence.
 - Neon Postgres Row-Level Security (RLS) for multi-tenant developer log isolation.
+- Interactive client-side API console for live endpoint verification.
 
 ### In Scope
-- Developer API keys generation and CRUD, rate limiting middleware, usage billing metrics, request/response payload audit logging, live DB migration, frontend settings dashboard & inspector, and unit tests.
+- Developer API keys generation and CRUD, rate limiting middleware, usage billing metrics, request/response payload audit logging, live DB migration, frontend settings dashboard & inspector, interactive API documentation & console, sidebar navigation update, and unit tests.
 
 ### Out of Scope
 - Dynamic Smart Routing rules engine (Device OS, Geo ISO Country Code, A/B Traffic Split) scheduled for Session 19.
@@ -788,6 +795,8 @@ This log tracks feature additions, technical decisions, architectural changes, a
 ### Notes for Future Sessions
 - Live Backend: `https://xoru-backend.mridu.workers.dev`
 - Live Frontend: `https://xoru-frontend.mridu.workers.dev`
+- API Docs URL: `https://xoru-frontend.mridu.workers.dev/dashboard/docs`
 - API Key Format: `key_live_...` or `key_test_...`
 - API Key Headers: `Authorization: Bearer key_live_...` or `X-API-Key: key_live_...`
 - **Session 19 Focus**: Dynamic Smart Routing rules engine (`smart_routes` table: Device OS, Geo ISO Country Code, A/B Traffic Split) and connecting `/dashboard/routes` UI to live backend routing execution.
+
