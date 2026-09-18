@@ -171,6 +171,56 @@ pixelsRouter.options('/track', (c) => {
   })
 })
 
+// Defensive schema synchronization for retargeting pixels & pixel events
+async function ensurePixelTablesExist(sql: any) {
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS retargeting_pixels (
+        id VARCHAR(64) PRIMARY KEY,
+        link_id VARCHAR(64) REFERENCES links(id) ON DELETE CASCADE,
+        user_id VARCHAR(64) NOT NULL,
+        workspace_id VARCHAR(64) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL DEFAULT 'Pixel',
+        platform VARCHAR(32) NOT NULL,
+        pixel_id VARCHAR(128) NOT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `
+    await sql`ALTER TABLE retargeting_pixels ADD COLUMN IF NOT EXISTS name VARCHAR(255) NOT NULL DEFAULT 'Pixel';`
+    await sql`ALTER TABLE retargeting_pixels ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;`
+    await sql`ALTER TABLE retargeting_pixels ALTER COLUMN link_id DROP NOT NULL;`
+    await sql`CREATE INDEX IF NOT EXISTS idx_retargeting_pixels_workspace_id ON retargeting_pixels(workspace_id);`
+    await sql`CREATE INDEX IF NOT EXISTS idx_retargeting_pixels_user_id ON retargeting_pixels(user_id);`
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS pixel_events (
+        id VARCHAR(64) PRIMARY KEY,
+        pixel_id VARCHAR(64) NOT NULL REFERENCES retargeting_pixels(id) ON DELETE CASCADE,
+        workspace_id VARCHAR(64) NOT NULL,
+        user_id VARCHAR(64) NOT NULL,
+        link_id VARCHAR(64),
+        event_name VARCHAR(64) NOT NULL,
+        event_data JSONB,
+        page_url TEXT,
+        referrer TEXT,
+        device_type VARCHAR(32),
+        browser VARCHAR(64),
+        os VARCHAR(64),
+        country VARCHAR(8),
+        city VARCHAR(128),
+        ip_hash VARCHAR(64) NOT NULL,
+        timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `
+    await sql`CREATE INDEX IF NOT EXISTS idx_pixel_events_pixel_time ON pixel_events(pixel_id, timestamp DESC);`
+    await sql`CREATE INDEX IF NOT EXISTS idx_pixel_events_workspace_time ON pixel_events(workspace_id, timestamp DESC);`
+    await sql`CREATE INDEX IF NOT EXISTS idx_pixel_events_user_time ON pixel_events(user_id, timestamp DESC);`
+  } catch (err) {
+    // Non-fatal if already present
+  }
+}
+
 // -----------------------------------------------------------------------------
 // 3. AUTHENTICATED PIXEL MANAGEMENT CRUD
 // -----------------------------------------------------------------------------
@@ -201,6 +251,7 @@ pixelsRouter.get('/', tenantMiddleware, async (c) => {
   try {
     const { neon } = await import('@neondatabase/serverless')
     const sql = neon(dbUrl)
+    await ensurePixelTablesExist(sql)
 
     let rows
     if (workspaceId) {
@@ -276,6 +327,7 @@ pixelsRouter.post('/', tenantMiddleware, async (c) => {
   try {
     const { neon } = await import('@neondatabase/serverless')
     const sql = neon(dbUrl)
+    await ensurePixelTablesExist(sql)
 
     // Ensure effective workspace
     let effectiveWorkspaceId = workspaceId
