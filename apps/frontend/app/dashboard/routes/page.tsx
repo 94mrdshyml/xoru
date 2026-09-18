@@ -168,7 +168,7 @@ export default function SmartRoutesPage() {
       {/* 3 Core Routing Capability Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Device Routing Card */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-2">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs hover:border-indigo-200/90 transition-all space-y-2">
           <div className="flex items-center gap-2 text-indigo-600">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100">
               <Smartphone className="w-4 h-4 stroke-[2]" />
@@ -181,7 +181,7 @@ export default function SmartRoutesPage() {
         </div>
 
         {/* Geo Routing Card */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-2">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs hover:border-indigo-200/90 transition-all space-y-2">
           <div className="flex items-center gap-2 text-indigo-600">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100">
               <Globe className="w-4 h-4 stroke-[2]" />
@@ -194,7 +194,7 @@ export default function SmartRoutesPage() {
         </div>
 
         {/* A/B Traffic Split */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-2">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs hover:border-indigo-200/90 transition-all space-y-2">
           <div className="flex items-center gap-2 text-indigo-600">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100">
               <Sliders className="w-4 h-4 stroke-[2]" />
@@ -216,7 +216,7 @@ export default function SmartRoutesPage() {
           </span>
         </div>
 
-        <div className="w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <div className="w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs">
           <table className="w-full text-left text-xs text-slate-600">
             <thead className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase font-bold tracking-wider text-slate-500">
               <tr>
@@ -229,7 +229,7 @@ export default function SmartRoutesPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {routes.map((rule, idx) => (
-                <tr key={rule.id} className="hover:bg-slate-50/60 transition-colors">
+                <tr key={rule.id} className="hover:bg-slate-50/70 transition-colors">
                   {/* Priority & Type */}
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2">
@@ -247,7 +247,7 @@ export default function SmartRoutesPage() {
 
                   {/* Match Condition */}
                   <td className="px-5 py-3.5 font-semibold text-slate-900">
-                    <span className="font-mono text-xs">{rule.condition}</span>
+                    <span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded border border-slate-200/60">{rule.condition}</span>
                   </td>
 
                   {/* Target URL */}

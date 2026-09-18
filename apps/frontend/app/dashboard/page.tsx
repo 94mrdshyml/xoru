@@ -404,7 +404,7 @@ export default function DashboardOverviewPage() {
                   return (
                     <div
                       key={link.id}
-                      className="p-3.5 hover:bg-slate-50/80 transition-colors flex items-center justify-between gap-3"
+                      className="p-3.5 hover:bg-slate-50/90 transition-colors flex items-center justify-between gap-3"
                     >
                       <div className="space-y-1 min-w-0">
                         <div className="flex items-center gap-2">
@@ -412,35 +412,43 @@ export default function DashboardOverviewPage() {
                             {link.title || link.destination_url}
                           </span>
                           {link.is_protected && (
-                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/70">
                               Protected
                             </span>
                           )}
                           {link.is_one_time && (
-                            <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">
+                            <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200/70">
                               1-Time
                             </span>
                           )}
                         </div>
 
                         <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
-                          <span className="font-semibold text-indigo-600">{shortUrl}</span>
+                          <span className="font-semibold text-indigo-600 bg-indigo-50/70 px-1.5 py-0.2 rounded border border-indigo-100/60">
+                            /{link.custom_slug || link.short_code}
+                          </span>
                           <span className="text-slate-300">•</span>
-                          <span className="truncate max-w-[150px] sm:max-w-[200px]">{link.destination_url}</span>
+                          <span className="truncate max-w-[150px] sm:max-w-[200px] text-slate-500">{link.destination_url}</span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full tabular-nums">
+                        <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200/60 tabular-nums">
                           {link.click_count || 0} clicks
                         </span>
 
                         <button
                           onClick={() => copyToClipboard(shortUrl, link.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                          className="relative p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 active:scale-95 transition-all"
                           title="Copy Short URL"
                         >
-                          {isCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                          {isCopied ? (
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600">
+                              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </span>
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -457,12 +465,12 @@ export default function DashboardOverviewPage() {
                 <h2 className="text-base font-bold text-slate-900">7-Day Click Velocity</h2>
                 <p className="text-xs text-slate-500">Daily redirect traffic activity across all links</p>
               </div>
-              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">
+              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100/80">
                 {totalClicksCount} total
               </span>
             </div>
 
-            <div className="grid grid-cols-7 gap-2 pt-4 items-end h-32">
+            <div className="grid grid-cols-7 gap-2 pt-4 items-end h-36">
               {(analytics?.clicks_by_date || [
                 { date: '1', label: 'Mon', count: 0 },
                 { date: '2', label: 'Tue', count: 0 },
@@ -475,14 +483,16 @@ export default function DashboardOverviewPage() {
                 const heightPercent = Math.max(8, Math.round((day.count / maxClickInSeries) * 100));
 
                 return (
-                  <div key={idx} className="flex flex-col items-center gap-1.5 h-full justify-end group">
-                    <span className="text-[10px] font-bold text-slate-400 group-hover:text-indigo-600 transition-colors tabular-nums">
+                  <div key={idx} className="flex flex-col items-center gap-1.5 h-full justify-end group relative">
+                    <span className="text-[10px] font-bold text-slate-400 group-hover:text-indigo-600 group-hover:scale-110 transition-all tabular-nums">
                       {day.count}
                     </span>
-                    <div
-                      className="w-full max-w-[28px] rounded-lg bg-indigo-100 group-hover:bg-indigo-600 transition-colors duration-150"
-                      style={{ height: `${heightPercent}%` }}
-                    />
+                    <div className="w-full bg-slate-50 rounded-t-lg h-24 flex items-end justify-center p-0.5">
+                      <div
+                        className="w-full max-w-[28px] rounded-t-md bg-indigo-200 group-hover:bg-indigo-600 transition-colors duration-200"
+                        style={{ height: `${heightPercent}%` }}
+                      />
+                    </div>
                     <span className="text-[10px] font-bold text-slate-500">{day.label}</span>
                   </div>
                 );

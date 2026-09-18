@@ -47,6 +47,7 @@ interface LinksTableProps {
 export function LinksTable({ links, onRefresh, isLoading, onOpenCreate }: LinksTableProps) {
   const { getToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'protected' | 'one_time'>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [qrModalState, setQrModalState] = useState<{ isOpen: boolean; url: string; title: string }>({
     isOpen: false,
@@ -67,16 +68,26 @@ export function LinksTable({ links, onRefresh, isLoading, onOpenCreate }: LinksT
   });
 
   const filteredLinks = useMemo(() => {
-    if (!searchQuery.trim()) return links;
+    let result = links;
+
+    if (activeFilter === 'active') {
+      result = result.filter((l) => l.is_active && !l.is_consumed);
+    } else if (activeFilter === 'protected') {
+      result = result.filter((l) => l.is_protected);
+    } else if (activeFilter === 'one_time') {
+      result = result.filter((l) => l.is_one_time);
+    }
+
+    if (!searchQuery.trim()) return result;
     const query = searchQuery.toLowerCase().trim();
-    return links.filter(
+    return result.filter(
       (link) =>
         link.title.toLowerCase().includes(query) ||
         link.short_code.toLowerCase().includes(query) ||
         (link.custom_slug && link.custom_slug.toLowerCase().includes(query)) ||
         link.destination_url.toLowerCase().includes(query)
     );
-  }, [links, searchQuery]);
+  }, [links, searchQuery, activeFilter]);
 
   const getPublicShortUrl = (link: ShortLink) => {
     const slug = link.custom_slug || link.short_code;
@@ -159,33 +170,50 @@ export function LinksTable({ links, onRefresh, isLoading, onOpenCreate }: LinksT
 
   return (
     <div className="space-y-4">
-      {/* Control Bar: Search & Filtering */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 stroke-[2]" />
-          <input
-            type="text"
-            placeholder="Filter by title, slug, or destination..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-slate-200/90 bg-white py-2 pl-9 pr-4 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm transition-colors"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase"
-            >
-              Clear
-            </button>
-          )}
+      {/* Control Bar: Search & Filter Tabs */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-1 max-w-md">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 stroke-[2]" />
+            <input
+              type="text"
+              placeholder="Filter by title, slug, or destination..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-xl border border-slate-200/90 bg-white py-2 pl-9 pr-4 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-xs transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 self-end sm:self-center">
-          <Filter className="w-3.5 h-3.5 text-slate-400 stroke-[2]" />
-          <span>
-            Showing <strong className="text-slate-700 font-bold tabular-nums">{filteredLinks.length}</strong> of{' '}
-            <strong className="text-slate-700 font-bold tabular-nums">{links.length}</strong> link(s)
-          </span>
+        {/* Filter Pills */}
+        <div className="flex items-center gap-1.5 self-start sm:self-auto overflow-x-auto pb-1 sm:pb-0">
+          {[
+            { id: 'all', label: `All (${links.length})` },
+            { id: 'active', label: 'Active' },
+            { id: 'protected', label: 'Protected' },
+            { id: 'one_time', label: '1-Time' },
+          ].map((pill) => (
+            <button
+              key={pill.id}
+              type="button"
+              onClick={() => setActiveFilter(pill.id as any)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                activeFilter === pill.id
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-white border border-slate-200/90 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {pill.label}
+            </button>
+          ))}
         </div>
       </div>
 

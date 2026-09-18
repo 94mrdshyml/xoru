@@ -49,6 +49,7 @@ export default function AnalyticsPage() {
   const [hasMounted, setHasMounted] = useState(false);
   const [links, setLinks] = useState<ShortLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string>('all');
+  const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | 'all'>('7d');
   const [analytics, setAnalytics] = useState<AnalyticsData>(DEFAULT_ANALYTICS);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingAnalytics, setIsFetchingAnalytics] = useState(false);
@@ -83,7 +84,7 @@ export default function AnalyticsPage() {
   }, [getToken]);
 
   // Fetch telemetry analytics from backend
-  const fetchAnalytics = useCallback(async (linkId: string, wrkId?: string) => {
+  const fetchAnalytics = useCallback(async (linkId: string, wrkId?: string, period: string = '7d') => {
     setIsFetchingAnalytics(true);
     const backendUrl =
       process.env.NEXT_PUBLIC_BACKEND_URL ||
@@ -95,7 +96,7 @@ export default function AnalyticsPage() {
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const query = new URLSearchParams();
-      query.set('period', '7d');
+      query.set('period', period);
       if (linkId !== 'all') {
         query.set('link_id', linkId);
       } else if (wrkId) {
@@ -121,10 +122,10 @@ export default function AnalyticsPage() {
         router.push('/sign-in');
       } else {
         fetchLinks(activeWorkspaceId);
-        fetchAnalytics(selectedLinkId, activeWorkspaceId);
+        fetchAnalytics(selectedLinkId, activeWorkspaceId, selectedPeriod);
       }
     }
-  }, [hasMounted, isUserLoaded, isAuthLoaded, isSignedIn, router, fetchLinks, fetchAnalytics, selectedLinkId, activeWorkspaceId]);
+  }, [hasMounted, isUserLoaded, isAuthLoaded, isSignedIn, router, fetchLinks, fetchAnalytics, selectedLinkId, activeWorkspaceId, selectedPeriod]);
 
   const activeLinks = selectedLinkId === 'all'
     ? links
@@ -236,16 +237,34 @@ export default function AnalyticsPage() {
           </p>
         </div>
 
-        {/* Link Filter Selector */}
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Filter:</label>
+        {/* Controls: Filter & Period Selector */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Period Toggle */}
+          <div className="flex items-center rounded-xl border border-slate-200 bg-white p-0.5 shadow-2xs">
+            {(['7d', '30d', 'all'] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setSelectedPeriod(p)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  selectedPeriod === p
+                    ? 'bg-indigo-600 text-white shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                {p === '7d' ? '7 Days' : p === '30d' ? '30 Days' : 'All Time'}
+              </button>
+            ))}
+          </div>
+
+          {/* Link Filter Selector */}
           <select
             value={selectedLinkId}
             onChange={(e) => setSelectedLinkId(e.target.value)}
             disabled={isFetchingAnalytics}
-            className="rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
+            className="rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
           >
-            <option value="all">All Short Links ({links.length})</option>
+            <option value="all">All Links ({links.length})</option>
             {links.map((link) => (
               <option key={link.id} value={link.id}>
                 {link.title} (/{link.custom_slug || link.short_code})
@@ -258,7 +277,7 @@ export default function AnalyticsPage() {
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Total Clicks */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-2">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-2 hover:border-indigo-200 transition-colors">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Clicks</span>
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
@@ -266,7 +285,7 @@ export default function AnalyticsPage() {
             </div>
           </div>
           <div className="flex items-baseline justify-between pt-1">
-            <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{totalClicks}</p>
+            <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{totalClicks.toLocaleString()}</p>
             <span className="text-xs font-semibold text-emerald-600 inline-flex items-center gap-0.5">
               <TrendingUp className="w-3 h-3" /> Live
             </span>
@@ -274,7 +293,7 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Unique Visitors */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-2">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-2 hover:border-indigo-200 transition-colors">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Unique Visitors</span>
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
@@ -282,13 +301,13 @@ export default function AnalyticsPage() {
             </div>
           </div>
           <div className="flex items-baseline justify-between pt-1">
-            <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{uniqueVisitors}</p>
+            <p className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{uniqueVisitors.toLocaleString()}</p>
             <span className="text-xs font-medium text-slate-400">anonymized IP</span>
           </div>
         </div>
 
         {/* Edge Cache Hit Rate */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-2">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-2 hover:border-emerald-200 transition-colors">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Edge KV Cache</span>
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
@@ -302,7 +321,7 @@ export default function AnalyticsPage() {
         </div>
 
         {/* QR Code Clicks */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-2">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-2 hover:border-indigo-200 transition-colors">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">QR Code Scans</span>
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
@@ -317,13 +336,15 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Volume Chart Over Time */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-indigo-600 stroke-[2]" />
-            <h2 className="text-sm font-bold text-slate-900">Traffic Activity (Last 7 Days)</h2>
+            <h2 className="text-sm font-bold text-slate-900">Traffic Velocity & Ingestion</h2>
           </div>
-          <span className="text-xs font-semibold text-slate-400">Live Ingestion</span>
+          <span className="text-xs font-semibold text-slate-400 tabular-nums">
+            {selectedPeriod === '7d' ? 'Past 7 Days' : selectedPeriod === '30d' ? 'Past 30 Days' : 'All Time'}
+          </span>
         </div>
 
         {totalClicks === 0 ? (
@@ -337,14 +358,14 @@ export default function AnalyticsPage() {
                 const heightPercent = item.count > 0 ? Math.max(Math.round((item.count / maxDayVal) * 100), 8) : 4;
 
                 return (
-                  <div key={item.date} className="flex-1 flex flex-col items-center gap-2 group">
+                  <div key={item.date} className="flex-1 flex flex-col items-center gap-2 group relative">
                     <span className="text-[11px] font-bold text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity tabular-nums">
                       {item.count}
                     </span>
-                    <div className="w-full bg-slate-100/80 rounded-t-lg h-36 flex items-end justify-center p-1">
+                    <div className="w-full bg-slate-50 rounded-t-lg h-36 flex items-end justify-center p-1">
                       <div
                         style={{ height: `${heightPercent}%` }}
-                        className="w-full max-w-[42px] bg-indigo-600 hover:bg-indigo-700 rounded-t-md transition-all duration-300 shadow-sm"
+                        className="w-full max-w-[42px] bg-indigo-600 group-hover:bg-indigo-700 rounded-t-md transition-all duration-300 shadow-2xs"
                       />
                     </div>
                     <span className="text-[11px] font-semibold text-slate-500">{item.label}</span>

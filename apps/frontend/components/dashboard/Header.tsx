@@ -43,7 +43,7 @@ export function Header({ onOpenMobileSidebar, onOpenCreateModal }: HeaderProps) 
         </div>
 
         <nav aria-label="Breadcrumb" className="hidden lg:flex items-center gap-2 text-xs font-semibold text-slate-400">
-          <span className="text-slate-500">Dashboard</span>
+          <span className="text-slate-500 hover:text-slate-700 transition-colors">Workspace</span>
           <span className="text-slate-300">/</span>
           <span className="text-slate-900 font-bold">{getPageTitle()}</span>
         </nav>
@@ -54,7 +54,7 @@ export function Header({ onOpenMobileSidebar, onOpenCreateModal }: HeaderProps) 
         <button
           type="button"
           onClick={onOpenCreateModal}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all duration-150"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all duration-150"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
           <span>Create Link</span>
