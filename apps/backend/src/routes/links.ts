@@ -40,6 +40,14 @@ linksApp.post('/', async (c) => {
   }
 
 
+  const workspaceId = body.workspace_id || c.req.header('x-workspace-id') || c.req.query('workspace_id') || tenant.workspace_id
+  if (!workspaceId) {
+    return c.json(
+      { error: { code: 'MISSING_WORKSPACE_ID', message: 'workspace_id is required in the request body or X-Workspace-Id header.' } },
+      400
+    )
+  }
+
   if (!body.title || !body.destination_url) {
     return c.json(
       { error: { code: 'INVALID_INPUT', message: 'title and destination_url are required.' } },
@@ -83,7 +91,7 @@ linksApp.post('/', async (c) => {
     )
   }
 
-  let effectiveWorkspaceId = body.workspace_id
+  let effectiveWorkspaceId = workspaceId
 
   if (dbUrl) {
     try {
@@ -207,45 +215,35 @@ linksApp.post('/', async (c) => {
 // 2. Get Workspace Short Links
 linksApp.get('/', async (c) => {
   const tenant = c.get('tenant')
-  const workspaceId = c.req.query('workspace_id')
-  const dbUrl = c.env?.NEON_DATABASE_URL
+  const workspaceId = c.req.header('x-workspace-id') || c.req.query('workspace_id') || tenant.workspace_id
 
+  if (!workspaceId) {
+    return c.json(
+      { error: { code: 'MISSING_WORKSPACE_ID', message: 'workspace_id is required via query parameter (?workspace_id=...) or X-Workspace-Id header.' } },
+      400
+    )
+  }
+
+  const dbUrl = c.env?.NEON_DATABASE_URL
   if (!dbUrl) {
     return c.json([])
   }
 
   try {
     const links = await withTenantDb(dbUrl, tenant.user_id, async (sql) => {
-      let queryResult
-      if (workspaceId) {
-        queryResult = await sql`
-          SELECT 
-            l.id, l.user_id, l.workspace_id, l.title, l.description, l.destination_url,
-            l.short_code, l.custom_slug, l.redirect_type, l.is_active, l.is_one_time,
-            l.is_consumed, l.consumed_at, l.expires_at, l.created_by, l.created_at, l.updated_at,
-            (l.password_hash IS NOT NULL) as is_protected,
-            COALESCE(COUNT(c.id), 0)::int as click_count
-          FROM links l
-          LEFT JOIN click_events c ON c.link_id = l.id
-          WHERE l.user_id = ${tenant.user_id} AND l.workspace_id = ${workspaceId}
-          GROUP BY l.id
-          ORDER BY l.created_at DESC
-        `
-      } else {
-        queryResult = await sql`
-          SELECT 
-            l.id, l.user_id, l.workspace_id, l.title, l.description, l.destination_url,
-            l.short_code, l.custom_slug, l.redirect_type, l.is_active, l.is_one_time,
-            l.is_consumed, l.consumed_at, l.expires_at, l.created_by, l.created_at, l.updated_at,
-            (l.password_hash IS NOT NULL) as is_protected,
-            COALESCE(COUNT(c.id), 0)::int as click_count
-          FROM links l
-          LEFT JOIN click_events c ON c.link_id = l.id
-          WHERE l.user_id = ${tenant.user_id}
-          GROUP BY l.id
-          ORDER BY l.created_at DESC
-        `
-      }
+      const queryResult = await sql`
+        SELECT 
+          l.id, l.user_id, l.workspace_id, l.title, l.description, l.destination_url,
+          l.short_code, l.custom_slug, l.redirect_type, l.is_active, l.is_one_time,
+          l.is_consumed, l.consumed_at, l.expires_at, l.created_by, l.created_at, l.updated_at,
+          (l.password_hash IS NOT NULL) as is_protected,
+          COALESCE(COUNT(c.id), 0)::int as click_count
+        FROM links l
+        LEFT JOIN click_events c ON c.link_id = l.id
+        WHERE l.user_id = ${tenant.user_id} AND l.workspace_id = ${workspaceId}
+        GROUP BY l.id
+        ORDER BY l.created_at DESC
+      `
       return queryResult
     })
 

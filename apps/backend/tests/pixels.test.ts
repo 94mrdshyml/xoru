@@ -55,8 +55,17 @@ describe('Pixels & Tracking API Endpoints', () => {
     expect(res.status).toBe(401)
   })
 
-  it('GET /api/v1/pixels returns list for authenticated user', async () => {
+  it('GET /api/v1/pixels validates missing workspace_id', async () => {
     const res = await app.request('/api/v1/pixels', {
+      headers: { 'X-Tenant-Id': 'usr_test_user' },
+    })
+    expect(res.status).toBe(400)
+    const json = await res.json<any>()
+    expect(json.error.code).toBe('MISSING_WORKSPACE_ID')
+  })
+
+  it('GET /api/v1/pixels returns list for authenticated user with workspace_id', async () => {
+    const res = await app.request('/api/v1/pixels?workspace_id=wrk_test_123', {
       headers: { 'X-Tenant-Id': 'usr_test_user' },
     })
     expect(res.status).toBe(200)
@@ -64,7 +73,7 @@ describe('Pixels & Tracking API Endpoints', () => {
     expect(Array.isArray(json)).toBe(true)
   })
 
-  it('POST /api/v1/pixels validates and provisions pixel in dev mode', async () => {
+  it('POST /api/v1/pixels validates missing workspace_id', async () => {
     const res = await app.request('/api/v1/pixels', {
       method: 'POST',
       headers: {
@@ -76,19 +85,39 @@ describe('Pixels & Tracking API Endpoints', () => {
         name: 'Main Website Tracker',
       }),
     })
-    expect(res.status).toBe(201)
+    expect(res.status).toBe(400)
     const json = await res.json<any>()
-    expect(json).toHaveProperty('id')
-    expect(json.name).toBe('Main Website Tracker')
-    expect(json.platform).toBe('xoru')
+    expect(json.error.code).toBe('MISSING_WORKSPACE_ID')
   })
 
-  it('POST /api/v1/pixels provisions third-party Meta pixel', async () => {
+  it('POST /api/v1/pixels validates and provisions pixel in dev mode with workspace_id', async () => {
     const res = await app.request('/api/v1/pixels', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Tenant-Id': 'usr_test_user',
+      },
+      body: JSON.stringify({
+        workspace_id: 'wrk_test_123',
+        platform: 'xoru',
+        name: 'Main Website Tracker',
+      }),
+    })
+    expect(res.status).toBe(201)
+    const json = await res.json<any>()
+    expect(json).toHaveProperty('id')
+    expect(json.name).toBe('Main Website Tracker')
+    expect(json.platform).toBe('xoru')
+    expect(json.workspace_id).toBe('wrk_test_123')
+  })
+
+  it('POST /api/v1/pixels provisions third-party Meta pixel with X-Workspace-Id header', async () => {
+    const res = await app.request('/api/v1/pixels', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Tenant-Id': 'usr_test_user',
+        'X-Workspace-Id': 'wrk_test_meta',
       },
       body: JSON.stringify({
         platform: 'meta',
@@ -100,5 +129,6 @@ describe('Pixels & Tracking API Endpoints', () => {
     const json = await res.json<any>()
     expect(json.platform).toBe('meta')
     expect(json.pixel_id).toBe('98273612847192')
+    expect(json.workspace_id).toBe('wrk_test_meta')
   })
 })

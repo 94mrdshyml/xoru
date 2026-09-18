@@ -16,6 +16,7 @@ import {
   Layers,
 } from '@deemlol/next-icons';
 import { ShortLink } from '@/components/LinksTable';
+import { useWorkspace } from '@/context/WorkspaceContext';
 import { CustomModal } from '@/components/ui/CustomModal';
 import { MorphButton } from '@/components/ui/MorphButton';
 import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal';
@@ -32,6 +33,7 @@ interface SmartRouteRule {
 
 export default function SmartRoutesPage() {
   const { getToken } = useAuth();
+  const { activeWorkspaceId } = useWorkspace();
   const [links, setLinks] = useState<ShortLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string>('');
   const [routes, setRoutes] = useState<SmartRouteRule[]>([
@@ -90,7 +92,11 @@ export default function SmartRoutesPage() {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`${backendUrl}/api/v1/links`, { headers });
+      const queryUrl = activeWorkspaceId
+        ? `${backendUrl}/api/v1/links?workspace_id=${activeWorkspaceId}`
+        : `${backendUrl}/api/v1/links`;
+
+      const res = await fetch(queryUrl, { headers });
       if (res.ok) {
         const data = await res.json();
         const linkList = Array.isArray(data) ? data : [];
@@ -103,7 +109,7 @@ export default function SmartRoutesPage() {
     } catch {
       // Fallback
     }
-  }, [getToken]);
+  }, [getToken, activeWorkspaceId]);
 
   useEffect(() => {
     fetchLinks();

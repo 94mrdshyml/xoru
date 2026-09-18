@@ -81,15 +81,21 @@ function generateSecretToken(): string {
 // -----------------------------------------------------------------------------
 apiKeysRouter.get('/', tenantMiddleware, async (c) => {
   const tenant = c.get('tenant')
-  const workspaceId = c.req.query('workspace_id')
-  const dbUrl = c.env?.NEON_DATABASE_URL
+  const workspaceId = c.req.header('x-workspace-id') || c.req.query('workspace_id') || tenant.workspace_id
+  if (!workspaceId) {
+    return c.json(
+      { error: { code: 'MISSING_WORKSPACE_ID', message: 'workspace_id is required via query parameter (?workspace_id=...) or X-Workspace-Id header.' } },
+      400
+    )
+  }
 
+  const dbUrl = c.env?.NEON_DATABASE_URL
   if (!dbUrl) {
     return c.json([
       {
         id: 'key_demo_default',
         user_id: tenant.user_id,
-        workspace_id: workspaceId || 'wrk_default',
+        workspace_id: workspaceId,
         name: 'Default Development Key',
         key_prefix: 'key_live_9a8f••••••••',
         environment: 'live',
@@ -109,28 +115,15 @@ apiKeysRouter.get('/', tenantMiddleware, async (c) => {
     const sql = neon(dbUrl)
     await ensureApiKeysTablesExist(sql)
 
-    let rows
-    if (workspaceId) {
-      rows = await sql`
-        SELECT 
-          id, user_id, workspace_id, name, key_prefix, environment,
-          monthly_limit, requests_count, billing_cycle_start,
-          rate_limit_per_minute, is_active, last_used_at, expires_at, created_at
-        FROM api_keys
-        WHERE user_id = ${tenant.user_id} AND workspace_id = ${workspaceId}
-        ORDER BY created_at DESC
-      `
-    } else {
-      rows = await sql`
-        SELECT 
-          id, user_id, workspace_id, name, key_prefix, environment,
-          monthly_limit, requests_count, billing_cycle_start,
-          rate_limit_per_minute, is_active, last_used_at, expires_at, created_at
-        FROM api_keys
-        WHERE user_id = ${tenant.user_id}
-        ORDER BY created_at DESC
-      `
-    }
+    const rows = await sql`
+      SELECT 
+        id, user_id, workspace_id, name, key_prefix, environment,
+        monthly_limit, requests_count, billing_cycle_start,
+        rate_limit_per_minute, is_active, last_used_at, expires_at, created_at
+      FROM api_keys
+      WHERE user_id = ${tenant.user_id} AND workspace_id = ${workspaceId}
+      ORDER BY created_at DESC
+    `
 
     return c.json(rows)
   } catch (err: any) {
@@ -152,11 +145,18 @@ apiKeysRouter.post('/', tenantMiddleware, async (c) => {
     expires_in_days?: number | null
   }>().catch(() => ({} as any))
 
+  const workspaceId = body.workspace_id || c.req.header('x-workspace-id') || c.req.query('workspace_id') || tenant.workspace_id
+  if (!workspaceId) {
+    return c.json(
+      { error: { code: 'MISSING_WORKSPACE_ID', message: 'workspace_id is required in the request body or X-Workspace-Id header.' } },
+      400
+    )
+  }
+
   const name = (body.name && body.name.trim()) ? body.name.trim() : 'Developer API Key'
   const environment = body.environment === 'test' ? 'test' : 'live'
   const monthlyLimit = typeof body.monthly_limit === 'number' && body.monthly_limit > 0 ? body.monthly_limit : 10000
   const rateLimitPerMinute = typeof body.rate_limit_per_minute === 'number' && body.rate_limit_per_minute > 0 ? body.rate_limit_per_minute : 60
-  const workspaceId = body.workspace_id
 
   // Expiration calculation
   let expiresAt: string | null = null
@@ -177,6 +177,8 @@ apiKeysRouter.post('/', tenantMiddleware, async (c) => {
   if (!dbUrl) {
     return c.json({
       id,
+      user_id: tenant.user_id,
+      workspace_id: workspaceId,
       name,
       key_secret: rawKeySecret,
       key_prefix: keyPrefix,
@@ -364,10 +366,17 @@ apiKeysRouter.delete('/:id', tenantMiddleware, async (c) => {
 // -----------------------------------------------------------------------------
 apiKeysRouter.get('/logs', tenantMiddleware, async (c) => {
   const tenant = c.get('tenant')
-  const workspaceId = c.req.query('workspace_id')
   const keyId = c.req.query('key_id')
-  const dbUrl = c.env?.NEON_DATABASE_URL
+  const workspaceId = c.req.header('x-workspace-id') || c.req.query('workspace_id') || tenant.workspace_id
 
+  if (!keyId && !workspaceId) {
+    return c.json(
+      { error: { code: 'MISSING_WORKSPACE_ID', message: 'workspace_id is required via query parameter (?workspace_id=...) or X-Workspace-Id header unless key_id is specified.' } },
+      400
+    )
+  }
+
+  const dbUrl = c.env?.NEON_DATABASE_URL
   if (!dbUrl) {
     return c.json([
       {
@@ -409,19 +418,6 @@ apiKeysRouter.get('/logs', tenantMiddleware, async (c) => {
         ORDER BY l.created_at DESC
         LIMIT 50
       `
-    } else if (workspaceId) {
-      rows = await sql`
-        SELECT 
-          l.id, l.key_id, l.user_id, l.workspace_id, l.http_method, l.endpoint,
-          l.status_code, l.response_time_ms, l.request_headers, l.request_body,
-          l.response_body, l.error_message, l.ip_hash, l.user_agent, l.created_at,
-          k.name as key_name, k.key_prefix
-        FROM api_call_logs l
-        LEFT JOIN api_keys k ON k.id = l.key_id
-        WHERE l.user_id = ${tenant.user_id} AND l.workspace_id = ${workspaceId}
-        ORDER BY l.created_at DESC
-        LIMIT 50
-      `
     } else {
       rows = await sql`
         SELECT 
@@ -431,7 +427,7 @@ apiKeysRouter.get('/logs', tenantMiddleware, async (c) => {
           k.name as key_name, k.key_prefix
         FROM api_call_logs l
         LEFT JOIN api_keys k ON k.id = l.key_id
-        WHERE l.user_id = ${tenant.user_id}
+        WHERE l.user_id = ${tenant.user_id} AND l.workspace_id = ${workspaceId}
         ORDER BY l.created_at DESC
         LIMIT 50
       `
@@ -448,9 +444,15 @@ apiKeysRouter.get('/logs', tenantMiddleware, async (c) => {
 // -----------------------------------------------------------------------------
 apiKeysRouter.get('/usage', tenantMiddleware, async (c) => {
   const tenant = c.get('tenant')
-  const workspaceId = c.req.query('workspace_id')
-  const dbUrl = c.env?.NEON_DATABASE_URL
+  const workspaceId = c.req.header('x-workspace-id') || c.req.query('workspace_id') || tenant.workspace_id
+  if (!workspaceId) {
+    return c.json(
+      { error: { code: 'MISSING_WORKSPACE_ID', message: 'workspace_id is required via query parameter (?workspace_id=...) or X-Workspace-Id header.' } },
+      400
+    )
+  }
 
+  const dbUrl = c.env?.NEON_DATABASE_URL
   if (!dbUrl) {
     return c.json({
       total_requests: 2450,
@@ -466,26 +468,14 @@ apiKeysRouter.get('/usage', tenantMiddleware, async (c) => {
     const sql = neon(dbUrl)
     await ensureApiKeysTablesExist(sql)
 
-    let rows
-    if (workspaceId) {
-      rows = await sql`
-        SELECT 
-          COALESCE(SUM(requests_count), 0)::int AS total_requests,
-          COALESCE(SUM(monthly_limit), 10000)::int AS total_limit,
-          COUNT(id)::int AS active_keys_count
-        FROM api_keys
-        WHERE user_id = ${tenant.user_id} AND workspace_id = ${workspaceId} AND is_active = TRUE
-      `
-    } else {
-      rows = await sql`
-        SELECT 
-          COALESCE(SUM(requests_count), 0)::int AS total_requests,
-          COALESCE(SUM(monthly_limit), 10000)::int AS total_limit,
-          COUNT(id)::int AS active_keys_count
-        FROM api_keys
-        WHERE user_id = ${tenant.user_id} AND is_active = TRUE
-      `
-    }
+    const rows = await sql`
+      SELECT 
+        COALESCE(SUM(requests_count), 0)::int AS total_requests,
+        COALESCE(SUM(monthly_limit), 10000)::int AS total_limit,
+        COUNT(id)::int AS active_keys_count
+      FROM api_keys
+      WHERE user_id = ${tenant.user_id} AND workspace_id = ${workspaceId} AND is_active = TRUE
+    `
 
     const totalRequests = rows[0]?.total_requests || 0
     const totalLimit = rows[0]?.total_limit || 10000

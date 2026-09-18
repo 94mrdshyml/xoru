@@ -40,9 +40,21 @@ const COUNTRY_NAMES: Record<string, string> = {
 analyticsApp.get('/', async (c) => {
   const tenant = c.get('tenant')
   const userId = tenant.user_id
-  const workspaceId = c.req.query('workspace_id')
   const linkId = c.req.query('link_id')
+  const workspaceId = c.req.header('x-workspace-id') || c.req.query('workspace_id') || tenant.workspace_id
   const period = c.req.query('period') || '7d'
+
+  if (!linkId && !workspaceId) {
+    return c.json(
+      {
+        error: {
+          code: 'MISSING_WORKSPACE_ID',
+          message: 'workspace_id is required via query parameter (?workspace_id=...) or X-Workspace-Id header unless link_id is specified.',
+        },
+      },
+      400
+    )
+  }
 
   const dbUrl = c.env?.NEON_DATABASE_URL
   if (!dbUrl) {
@@ -77,16 +89,6 @@ analyticsApp.get('/', async (c) => {
           WHERE user_id = ${userId} AND link_id = ${linkId}
             AND timestamp >= ${cutoffDate}::timestamptz
         `
-      } else if (workspaceId) {
-        summaryRows = await sql`
-          SELECT 
-            COUNT(id)::int as total_clicks,
-            COUNT(DISTINCT ip_hash)::int as unique_visitors,
-            COUNT(CASE WHEN is_qr = TRUE THEN 1 END)::int as qr_clicks
-          FROM click_events
-          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
-            AND timestamp >= ${cutoffDate}::timestamptz
-        `
       } else {
         summaryRows = await sql`
           SELECT 
@@ -94,7 +96,7 @@ analyticsApp.get('/', async (c) => {
             COUNT(DISTINCT ip_hash)::int as unique_visitors,
             COUNT(CASE WHEN is_qr = TRUE THEN 1 END)::int as qr_clicks
           FROM click_events
-          WHERE user_id = ${userId}
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
             AND timestamp >= ${cutoffDate}::timestamptz
         `
       }
@@ -116,24 +118,13 @@ analyticsApp.get('/', async (c) => {
           GROUP BY date_key
           ORDER BY date_key ASC
         `
-      } else if (workspaceId) {
-        timeSeriesRows = await sql`
-          SELECT 
-            TO_CHAR(DATE(timestamp), 'YYYY-MM-DD') as date_key,
-            COUNT(id)::int as count
-          FROM click_events
-          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
-            AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY date_key
-          ORDER BY date_key ASC
-        `
       } else {
         timeSeriesRows = await sql`
           SELECT 
             TO_CHAR(DATE(timestamp), 'YYYY-MM-DD') as date_key,
             COUNT(id)::int as count
           FROM click_events
-          WHERE user_id = ${userId}
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
             AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY date_key
           ORDER BY date_key ASC
@@ -173,24 +164,13 @@ analyticsApp.get('/', async (c) => {
           GROUP BY COALESCE(device_type, 'desktop')
           ORDER BY count DESC
         `
-      } else if (workspaceId) {
-        deviceRows = await sql`
-          SELECT 
-            COALESCE(device_type, 'desktop') as device,
-            COUNT(id)::int as count
-          FROM click_events
-          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
-            AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY COALESCE(device_type, 'desktop')
-          ORDER BY count DESC
-        `
       } else {
         deviceRows = await sql`
           SELECT 
             COALESCE(device_type, 'desktop') as device,
             COUNT(id)::int as count
           FROM click_events
-          WHERE user_id = ${userId}
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
             AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY COALESCE(device_type, 'desktop')
           ORDER BY count DESC
@@ -221,25 +201,13 @@ analyticsApp.get('/', async (c) => {
           ORDER BY count DESC
           LIMIT 10
         `
-      } else if (workspaceId) {
-        countryRows = await sql`
-          SELECT 
-            COALESCE(country, 'Unknown') as country,
-            COUNT(id)::int as count
-          FROM click_events
-          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
-            AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY COALESCE(country, 'Unknown')
-          ORDER BY count DESC
-          LIMIT 10
-        `
       } else {
         countryRows = await sql`
           SELECT 
             COALESCE(country, 'Unknown') as country,
             COUNT(id)::int as count
           FROM click_events
-          WHERE user_id = ${userId}
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
             AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY COALESCE(country, 'Unknown')
           ORDER BY count DESC
@@ -273,25 +241,13 @@ analyticsApp.get('/', async (c) => {
           ORDER BY count DESC
           LIMIT 8
         `
-      } else if (workspaceId) {
-        referrerRows = await sql`
-          SELECT 
-            COALESCE(referrer_domain, 'Direct') as referrer,
-            COUNT(id)::int as count
-          FROM click_events
-          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
-            AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY COALESCE(referrer_domain, 'Direct')
-          ORDER BY count DESC
-          LIMIT 8
-        `
       } else {
         referrerRows = await sql`
           SELECT 
             COALESCE(referrer_domain, 'Direct') as referrer,
             COUNT(id)::int as count
           FROM click_events
-          WHERE user_id = ${userId}
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
             AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY COALESCE(referrer_domain, 'Direct')
           ORDER BY count DESC
@@ -323,25 +279,13 @@ analyticsApp.get('/', async (c) => {
           ORDER BY count DESC
           LIMIT 6
         `
-      } else if (workspaceId) {
-        osRows = await sql`
-          SELECT 
-            COALESCE(os, 'Other') as os,
-            COUNT(id)::int as count
-          FROM click_events
-          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
-            AND timestamp >= ${cutoffDate}::timestamptz
-          GROUP BY COALESCE(os, 'Other')
-          ORDER BY count DESC
-          LIMIT 6
-        `
       } else {
         osRows = await sql`
           SELECT 
             COALESCE(os, 'Other') as os,
             COUNT(id)::int as count
           FROM click_events
-          WHERE user_id = ${userId}
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
             AND timestamp >= ${cutoffDate}::timestamptz
           GROUP BY COALESCE(os, 'Other')
           ORDER BY count DESC

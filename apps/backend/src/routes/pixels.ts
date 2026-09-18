@@ -228,16 +228,22 @@ async function ensurePixelTablesExist(sql: any) {
 // GET /api/v1/pixels - List pixels in active workspace
 pixelsRouter.get('/', tenantMiddleware, async (c) => {
   const tenant = c.get('tenant')
-  const workspaceId = c.req.query('workspace_id')
-  const dbUrl = c.env?.NEON_DATABASE_URL
+  const workspaceId = c.req.header('x-workspace-id') || c.req.query('workspace_id') || tenant.workspace_id
+  if (!workspaceId) {
+    return c.json(
+      { error: { code: 'MISSING_WORKSPACE_ID', message: 'workspace_id is required via query parameter (?workspace_id=...) or X-Workspace-Id header.' } },
+      400
+    )
+  }
 
+  const dbUrl = c.env?.NEON_DATABASE_URL
   if (!dbUrl) {
     // Development fallback
     return c.json([
       {
         id: 'pxl_xoru_default',
         user_id: tenant.user_id,
-        workspace_id: workspaceId || 'wrk_default',
+        workspace_id: workspaceId,
         name: 'Workspace Tracking Pixel',
         platform: 'xoru',
         pixel_id: 'pxl_xoru_default',
@@ -253,30 +259,16 @@ pixelsRouter.get('/', tenantMiddleware, async (c) => {
     const sql = neon(dbUrl)
     await ensurePixelTablesExist(sql)
 
-    let rows
-    if (workspaceId) {
-      rows = await sql`
-        SELECT 
-          p.id, p.user_id, p.workspace_id, p.link_id, p.name, p.platform, p.pixel_id, p.is_active, p.created_at,
-          COUNT(e.id)::int AS events_count
-        FROM retargeting_pixels p
-        LEFT JOIN pixel_events e ON e.pixel_id = p.id
-        WHERE p.user_id = ${tenant.user_id} AND p.workspace_id = ${workspaceId}
-        GROUP BY p.id
-        ORDER BY p.created_at DESC
-      `
-    } else {
-      rows = await sql`
-        SELECT 
-          p.id, p.user_id, p.workspace_id, p.link_id, p.name, p.platform, p.pixel_id, p.is_active, p.created_at,
-          COUNT(e.id)::int AS events_count
-        FROM retargeting_pixels p
-        LEFT JOIN pixel_events e ON e.pixel_id = p.id
-        WHERE p.user_id = ${tenant.user_id}
-        GROUP BY p.id
-        ORDER BY p.created_at DESC
-      `
-    }
+    const rows = await sql`
+      SELECT 
+        p.id, p.user_id, p.workspace_id, p.link_id, p.name, p.platform, p.pixel_id, p.is_active, p.created_at,
+        COUNT(e.id)::int AS events_count
+      FROM retargeting_pixels p
+      LEFT JOIN pixel_events e ON e.pixel_id = p.id
+      WHERE p.user_id = ${tenant.user_id} AND p.workspace_id = ${workspaceId}
+      GROUP BY p.id
+      ORDER BY p.created_at DESC
+    `
 
     return c.json(rows)
   } catch (err: any) {
@@ -295,13 +287,20 @@ pixelsRouter.post('/', tenantMiddleware, async (c) => {
     link_id?: string
   }>().catch(() => ({} as any))
 
+  const workspaceId = body.workspace_id || c.req.header('x-workspace-id') || c.req.query('workspace_id') || tenant.workspace_id
+  if (!workspaceId) {
+    return c.json(
+      { error: { code: 'MISSING_WORKSPACE_ID', message: 'workspace_id is required in the request body or X-Workspace-Id header.' } },
+      400
+    )
+  }
+
   if (!body.platform) {
     return c.json({ error: { code: 'INVALID_INPUT', message: 'Platform is required.' } }, 400)
   }
 
   const platform = body.platform
   const name = (body.name && body.name.trim()) ? body.name.trim() : `${platform.toUpperCase()} Pixel`
-  const workspaceId = body.workspace_id
   const linkId = body.link_id || null
 
   const id = generateId('pxl')
@@ -313,7 +312,7 @@ pixelsRouter.post('/', tenantMiddleware, async (c) => {
     return c.json({
       id,
       user_id: tenant.user_id,
-      workspace_id: workspaceId || 'wrk_default',
+      workspace_id: workspaceId,
       link_id: linkId,
       name,
       platform,

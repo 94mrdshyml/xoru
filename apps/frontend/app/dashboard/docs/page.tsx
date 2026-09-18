@@ -20,7 +20,7 @@ import {
   Play,
   Terminal,
 } from '@deemlol/next-icons';
-import { MorphButton } from '@/components/ui/MorphButton';
+import { useWorkspace } from '@/context/WorkspaceContext';
 
 interface EndpointDoc {
   id: string;
@@ -42,17 +42,26 @@ interface EndpointDoc {
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://xoru-backend.mridu.workers.dev';
 
 export default function ApiDocsPage() {
+  const { activeWorkspaceId } = useWorkspace();
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeCodeTab, setActiveCodeTab] = useState<Record<string, 'curl' | 'ts' | 'python'>>({});
 
   // Interactive Live Console State
   const [consoleKey, setConsoleKey] = useState<string>('key_test_LSNB7Lu4Nw8OqYwKF8kMmKcQvvrGTzW4');
+  const [consoleWorkspaceId, setConsoleWorkspaceId] = useState<string>(activeWorkspaceId || 'wrk_personal_default');
   const [consoleEndpoint, setConsoleEndpoint] = useState<string>('/api/v1/links');
   const [consoleMethod, setConsoleMethod] = useState<'GET' | 'POST'>('GET');
-  const [consoleBody, setConsoleBody] = useState<string>('{\n  "title": "My Link",\n  "destination_url": "https://example.com"\n}');
+  const [consoleBody, setConsoleBody] = useState<string>(
+    '{\n  "workspace_id": "' + (activeWorkspaceId || 'wrk_default') + '",\n  "title": "My Short Link",\n  "destination_url": "https://example.com"\n}'
+  );
   const [consoleLoading, setConsoleLoading] = useState<boolean>(false);
-  const [consoleResponse, setConsoleResponse] = useState<{ status: number; headers: Record<string, string>; data: any; latency: number } | null>(null);
+  const [consoleResponse, setConsoleResponse] = useState<{
+    status: number;
+    headers: Record<string, string>;
+    data: any;
+    latency: number;
+  } | null>(null);
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -79,6 +88,9 @@ export default function ApiDocsPage() {
       };
       if (consoleKey.trim()) {
         headers['Authorization'] = `Bearer ${consoleKey.trim()}`;
+      }
+      if (consoleWorkspaceId.trim()) {
+        headers['X-Workspace-Id'] = consoleWorkspaceId.trim();
       }
 
       const options: RequestInit = {
@@ -133,11 +145,11 @@ export default function ApiDocsPage() {
       method: 'GET',
       path: '/api/v1/links',
       title: 'List Short Links',
-      description: 'Retrieve all short links associated with the authenticated workspace and tenant.',
+      description: 'Retrieve all short links scoped to a workspace. Must pass workspace_id via query parameter or X-Workspace-Id header.',
       authRequired: true,
       rateLimit: '60 req/min',
       queryParams: [
-        { name: 'workspace_id', type: 'string', required: false, description: 'Optional workspace ID to filter links.' },
+        { name: 'workspace_id', type: 'string', required: true, description: 'Workspace ID to scope links (or pass X-Workspace-Id header).' },
       ],
       responseExample: [
         {
@@ -158,9 +170,9 @@ export default function ApiDocsPage() {
           created_at: '2026-09-18T05:52:07.989Z',
         },
       ],
-      curlExample: `curl -X GET "${BASE_URL}/api/v1/links" \\
+      curlExample: `curl -X GET "${BASE_URL}/api/v1/links?workspace_id=wrk_6Mwd37e1YTIltWdK68LC1VLK" \\
   -H "Authorization: Bearer \${YOUR_API_KEY}"`,
-      tsExample: `const response = await fetch('${BASE_URL}/api/v1/links', {
+      tsExample: `const response = await fetch('${BASE_URL}/api/v1/links?workspace_id=wrk_6Mwd37e1YTIltWdK68LC1VLK', {
   headers: {
     'Authorization': \`Bearer \${process.env.XORU_API_KEY}\`
   }
@@ -171,7 +183,8 @@ console.log(links);`,
 import requests
 
 headers = {
-    "Authorization": f"Bearer {os.environ.get('XORU_API_KEY')}"
+    "Authorization": f"Bearer {os.environ.get('XORU_API_KEY')}",
+    "X-Workspace-Id": "wrk_6Mwd37e1YTIltWdK68LC1VLK"
 }
 response = requests.get("${BASE_URL}/api/v1/links", headers=headers)
 print(response.json())`,
@@ -182,10 +195,11 @@ print(response.json())`,
       method: 'POST',
       path: '/api/v1/links',
       title: 'Create Short Link',
-      description: 'Provisions a new short link with optional custom slug, password protection, expiration, and one-time burn rules.',
+      description: 'Provisions a new short link with sub-10ms edge redirection, custom slug, password protection, and one-time burn rules.',
       authRequired: true,
       rateLimit: '60 req/min',
       requestBody: {
+        workspace_id: 'wrk_6Mwd37e1YTIltWdK68LC1VLK',
         destination_url: 'https://example.com/pricing',
         title: 'Pricing Page',
         custom_slug: 'pricing-deals',
@@ -213,6 +227,7 @@ print(response.json())`,
   -H "Authorization: Bearer \${YOUR_API_KEY}" \\
   -H "Content-Type: application/json" \\
   -d '{
+    "workspace_id": "wrk_6Mwd37e1YTIltWdK68LC1VLK",
     "destination_url": "https://example.com/pricing",
     "title": "Pricing Page",
     "custom_slug": "pricing-deals"
@@ -224,6 +239,7 @@ print(response.json())`,
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
+    workspace_id: 'wrk_6Mwd37e1YTIltWdK68LC1VLK',
     destination_url: 'https://example.com/pricing',
     title: 'Pricing Page',
     custom_slug: 'pricing-deals'
@@ -234,6 +250,7 @@ const link = await response.json();`,
 import requests
 
 payload = {
+    "workspace_id": "wrk_6Mwd37e1YTIltWdK68LC1VLK",
     "destination_url": "https://example.com/pricing",
     "title": "Pricing Page",
     "custom_slug": "pricing-deals"
@@ -251,7 +268,7 @@ print(response.json())`,
       method: 'DELETE',
       path: '/api/v1/links/:id',
       title: 'Delete Short Link',
-      description: 'Permanently deletes a short link and immediately invalidates its Cloudflare KV edge cache entry.',
+      description: 'Permanently deletes a short link and immediately invalidates its Cloudflare KV edge cache entry. No workspace_id required (link-specific).',
       authRequired: true,
       rateLimit: '60 req/min',
       responseExample: {
@@ -285,9 +302,9 @@ print(response.json())`,
       authRequired: true,
       rateLimit: '60 req/min',
       queryParams: [
+        { name: 'workspace_id', type: 'string', required: true, description: 'Workspace ID to scope analytics (required unless link_id is supplied).' },
+        { name: 'link_id', type: 'string', required: false, description: 'Scope telemetry to a specific short link (bypasses workspace_id requirement).' },
         { name: 'period', type: 'string', required: false, description: 'Timeframe filter: 7d (default), 30d, or all.' },
-        { name: 'workspace_id', type: 'string', required: false, description: 'Scope telemetry to a specific workspace.' },
-        { name: 'link_id', type: 'string', required: false, description: 'Scope telemetry to a single short link.' },
       ],
       responseExample: {
         total_clicks: 1250,
@@ -310,9 +327,9 @@ print(response.json())`,
           { referrer: 'Direct', count: 320, percent: 26 },
         ],
       },
-      curlExample: `curl -X GET "${BASE_URL}/api/v1/analytics?period=7d" \\
+      curlExample: `curl -X GET "${BASE_URL}/api/v1/analytics?workspace_id=wrk_6Mwd37e1YTIltWdK68LC1VLK&period=7d" \\
   -H "Authorization: Bearer \${YOUR_API_KEY}"`,
-      tsExample: `const response = await fetch('${BASE_URL}/api/v1/analytics?period=7d', {
+      tsExample: `const response = await fetch('${BASE_URL}/api/v1/analytics?workspace_id=wrk_6Mwd37e1YTIltWdK68LC1VLK&period=7d', {
   headers: {
     'Authorization': \`Bearer \${process.env.XORU_API_KEY}\`
   }
@@ -324,7 +341,228 @@ import requests
 headers = {
     "Authorization": f"Bearer {os.environ.get('XORU_API_KEY')}"
 }
-response = requests.get("${BASE_URL}/api/v1/analytics?period=7d", headers=headers)
+params = {
+    "workspace_id": "wrk_6Mwd37e1YTIltWdK68LC1VLK",
+    "period": "7d"
+}
+response = requests.get("${BASE_URL}/api/v1/analytics", headers=headers, params=params)
+print(response.json())`,
+    },
+    {
+      id: 'get-pixels',
+      category: 'Retargeting Pixels',
+      method: 'GET',
+      path: '/api/v1/pixels',
+      title: 'List Pixels',
+      description: 'Fetch all first-party and 3rd-party retargeting pixels (Meta, Google, TikTok, Twitter) in the workspace.',
+      authRequired: true,
+      rateLimit: '60 req/min',
+      queryParams: [
+        { name: 'workspace_id', type: 'string', required: true, description: 'Workspace ID to scope pixels (or pass X-Workspace-Id header).' },
+      ],
+      responseExample: [
+        {
+          id: 'pxl_9aK192kZ',
+          user_id: 'usr_3JSio6WOA8bg37Ob5ytOzRWlXLj',
+          workspace_id: 'wrk_6Mwd37e1YTIltWdK68LC1VLK',
+          name: 'Main Site Pixel',
+          platform: 'xoru',
+          pixel_id: 'pxl_9aK192kZ',
+          is_active: true,
+          events_count: 142,
+          created_at: '2026-09-18T05:52:07.989Z',
+        },
+      ],
+      curlExample: `curl -X GET "${BASE_URL}/api/v1/pixels?workspace_id=wrk_6Mwd37e1YTIltWdK68LC1VLK" \\
+  -H "Authorization: Bearer \${YOUR_API_KEY}"`,
+      tsExample: `const response = await fetch('${BASE_URL}/api/v1/pixels?workspace_id=wrk_6Mwd37e1YTIltWdK68LC1VLK', {
+  headers: {
+    'Authorization': \`Bearer \${process.env.XORU_API_KEY}\`
+  }
+});
+const pixels = await response.json();`,
+      pythonExample: `import os
+import requests
+
+headers = {
+    "Authorization": f"Bearer {os.environ.get('XORU_API_KEY')}",
+    "X-Workspace-Id": "wrk_6Mwd37e1YTIltWdK68LC1VLK"
+}
+response = requests.get("${BASE_URL}/api/v1/pixels", headers=headers)
+print(response.json())`,
+    },
+    {
+      id: 'post-pixels',
+      category: 'Retargeting Pixels',
+      method: 'POST',
+      path: '/api/v1/pixels',
+      title: 'Provision Retargeting Pixel',
+      description: 'Creates a first-party tracking pixel or connects third-party pixels from Meta, Google, TikTok, Twitter, LinkedIn.',
+      authRequired: true,
+      rateLimit: '60 req/min',
+      requestBody: {
+        workspace_id: 'wrk_6Mwd37e1YTIltWdK68LC1VLK',
+        name: 'Meta Ads Conversion Pixel',
+        platform: 'meta',
+        pixel_id: '98273612847192',
+      },
+      responseExample: {
+        id: 'pxl_meta_982736',
+        user_id: 'usr_3JSio6WOA8bg37Ob5ytOzRWlXLj',
+        workspace_id: 'wrk_6Mwd37e1YTIltWdK68LC1VLK',
+        name: 'Meta Ads Conversion Pixel',
+        platform: 'meta',
+        pixel_id: '98273612847192',
+        is_active: true,
+        events_count: 0,
+        created_at: '2026-09-18T09:00:00.000Z',
+      },
+      curlExample: `curl -X POST "${BASE_URL}/api/v1/pixels" \\
+  -H "Authorization: Bearer \${YOUR_API_KEY}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "workspace_id": "wrk_6Mwd37e1YTIltWdK68LC1VLK",
+    "name": "Meta Ads Conversion Pixel",
+    "platform": "meta",
+    "pixel_id": "98273612847192"
+  }'`,
+      tsExample: `const response = await fetch('${BASE_URL}/api/v1/pixels', {
+  method: 'POST',
+  headers: {
+    'Authorization': \`Bearer \${process.env.XORU_API_KEY}\`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    workspace_id: 'wrk_6Mwd37e1YTIltWdK68LC1VLK',
+    name: 'Meta Ads Conversion Pixel',
+    platform: 'meta',
+    pixel_id: '98273612847192'
+  })
+});
+const pixel = await response.json();`,
+      pythonExample: `import os
+import requests
+
+payload = {
+    "workspace_id": "wrk_6Mwd37e1YTIltWdK68LC1VLK",
+    "name": "Meta Ads Conversion Pixel",
+    "platform": "meta",
+    "pixel_id": "98273612847192"
+}
+headers = {
+    "Authorization": f"Bearer {os.environ.get('XORU_API_KEY')}",
+    "Content-Type": "application/json"
+}
+response = requests.post("${BASE_URL}/api/v1/pixels", json=payload, headers=headers)
+print(response.json())`,
+    },
+    {
+      id: 'get-api-keys',
+      category: 'API Keys',
+      method: 'GET',
+      path: '/api/v1/api-keys',
+      title: 'List Developer API Keys',
+      description: 'Returns active developer keys, prefixes, environments, rate limits, and quota limits.',
+      authRequired: true,
+      rateLimit: '60 req/min',
+      queryParams: [
+        { name: 'workspace_id', type: 'string', required: true, description: 'Workspace ID (or pass X-Workspace-Id header).' },
+      ],
+      responseExample: [
+        {
+          id: 'key_Y9s26F9CT7Q6pSxDv4Oky1Zj',
+          user_id: 'usr_3JSio6WOA8bg37Ob5ytOzRWlXLj',
+          workspace_id: 'wrk_6Mwd37e1YTIltWdK68LC1VLK',
+          name: 'Production Worker Key',
+          key_prefix: 'key_live_LSNB••••89fa',
+          environment: 'live',
+          monthly_limit: 10000,
+          requests_count: 320,
+          rate_limit_per_minute: 60,
+          is_active: true,
+          created_at: '2026-09-18T05:52:07.989Z',
+        },
+      ],
+      curlExample: `curl -X GET "${BASE_URL}/api/v1/api-keys?workspace_id=wrk_6Mwd37e1YTIltWdK68LC1VLK" \\
+  -H "Authorization: Bearer \${YOUR_API_KEY}"`,
+      tsExample: `const response = await fetch('${BASE_URL}/api/v1/api-keys?workspace_id=wrk_6Mwd37e1YTIltWdK68LC1VLK', {
+  headers: {
+    'Authorization': \`Bearer \${process.env.XORU_API_KEY}\`
+  }
+});
+const keys = await response.json();`,
+      pythonExample: `import os
+import requests
+
+headers = {
+    "Authorization": f"Bearer {os.environ.get('XORU_API_KEY')}",
+    "X-Workspace-Id": "wrk_6Mwd37e1YTIltWdK68LC1VLK"
+}
+response = requests.get("${BASE_URL}/api/v1/api-keys", headers=headers)
+print(response.json())`,
+    },
+    {
+      id: 'post-api-keys',
+      category: 'API Keys',
+      method: 'POST',
+      path: '/api/v1/api-keys',
+      title: 'Provision Developer API Key',
+      description: 'Generates a new Stripe-style API key (key_live_... or key_test_...). Secret is returned only once.',
+      authRequired: true,
+      rateLimit: '60 req/min',
+      requestBody: {
+        workspace_id: 'wrk_6Mwd37e1YTIltWdK68LC1VLK',
+        name: 'Stripe Webhook API Key',
+        environment: 'live',
+        monthly_limit: 5000,
+        rate_limit_per_minute: 60,
+      },
+      responseExample: {
+        id: 'key_LSNB7Lu4Nw8OqYwKF8kMmKcQ',
+        workspace_id: 'wrk_6Mwd37e1YTIltWdK68LC1VLK',
+        name: 'Stripe Webhook API Key',
+        key_secret: 'key_live_LSNB7Lu4Nw8OqYwKF8kMmKcQvvrGTzW4',
+        key_prefix: 'key_live_LSNB••••TzW4',
+        environment: 'live',
+        monthly_limit: 5000,
+        rate_limit_per_minute: 60,
+        is_active: true,
+        created_at: '2026-09-18T09:10:00.000Z',
+      },
+      curlExample: `curl -X POST "${BASE_URL}/api/v1/api-keys" \\
+  -H "Authorization: Bearer \${YOUR_API_KEY}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "workspace_id": "wrk_6Mwd37e1YTIltWdK68LC1VLK",
+    "name": "Stripe Webhook API Key",
+    "environment": "live"
+  }'`,
+      tsExample: `const response = await fetch('${BASE_URL}/api/v1/api-keys', {
+  method: 'POST',
+  headers: {
+    'Authorization': \`Bearer \${process.env.XORU_API_KEY}\`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    workspace_id: 'wrk_6Mwd37e1YTIltWdK68LC1VLK',
+    name: 'Stripe Webhook API Key',
+    environment: 'live'
+  })
+});
+const newKey = await response.json();`,
+      pythonExample: `import os
+import requests
+
+payload = {
+    "workspace_id": "wrk_6Mwd37e1YTIltWdK68LC1VLK",
+    "name": "Stripe Webhook API Key",
+    "environment": "live"
+}
+headers = {
+    "Authorization": f"Bearer {os.environ.get('XORU_API_KEY')}",
+    "Content-Type": "application/json"
+}
+response = requests.post("${BASE_URL}/api/v1/api-keys", json=payload, headers=headers)
 print(response.json())`,
     },
     {
@@ -372,6 +610,9 @@ print(response.json())`,
       description: 'Inspects active request consumption, monthly quota limits, usage percentage, and countdown until the next billing reset.',
       authRequired: true,
       rateLimit: '60 req/min',
+      queryParams: [
+        { name: 'workspace_id', type: 'string', required: true, description: 'Workspace ID to query usage quota for (or pass X-Workspace-Id header).' },
+      ],
       responseExample: {
         total_requests: 485,
         monthly_limit: 10000,
@@ -379,9 +620,9 @@ print(response.json())`,
         active_keys_count: 2,
         billing_cycle_reset_days: 12,
       },
-      curlExample: `curl -X GET "${BASE_URL}/api/v1/api-keys/usage" \\
+      curlExample: `curl -X GET "${BASE_URL}/api/v1/api-keys/usage?workspace_id=wrk_6Mwd37e1YTIltWdK68LC1VLK" \\
   -H "Authorization: Bearer \${YOUR_API_KEY}"`,
-      tsExample: `const response = await fetch('${BASE_URL}/api/v1/api-keys/usage', {
+      tsExample: `const response = await fetch('${BASE_URL}/api/v1/api-keys/usage?workspace_id=wrk_6Mwd37e1YTIltWdK68LC1VLK', {
   headers: {
     'Authorization': \`Bearer \${process.env.XORU_API_KEY}\`
   }
@@ -391,7 +632,8 @@ const usage = await response.json();`,
 import requests
 
 headers = {
-    "Authorization": f"Bearer {os.environ.get('XORU_API_KEY')}"
+    "Authorization": f"Bearer {os.environ.get('XORU_API_KEY')}",
+    "X-Workspace-Id": "wrk_6Mwd37e1YTIltWdK68LC1VLK"
 }
 response = requests.get("${BASE_URL}/api/v1/api-keys/usage", headers=headers)
 print(response.json())`,
@@ -405,6 +647,10 @@ print(response.json())`,
       description: 'Returns high-resolution execution logs for API calls made with API keys, including latency in ms, HTTP status, and payloads.',
       authRequired: true,
       rateLimit: '60 req/min',
+      queryParams: [
+        { name: 'workspace_id', type: 'string', required: true, description: 'Workspace ID (required unless key_id is supplied).' },
+        { name: 'key_id', type: 'string', required: false, description: 'Scope logs to a specific API key (bypasses workspace_id requirement).' },
+      ],
       responseExample: [
         {
           id: 'apilog_pOlGKEbzWJSckNBocCdUarWI',
@@ -419,9 +665,9 @@ print(response.json())`,
           created_at: '2026-09-18T08:39:39.403Z',
         },
       ],
-      curlExample: `curl -X GET "${BASE_URL}/api/v1/api-keys/logs" \\
+      curlExample: `curl -X GET "${BASE_URL}/api/v1/api-keys/logs?workspace_id=wrk_6Mwd37e1YTIltWdK68LC1VLK" \\
   -H "Authorization: Bearer \${YOUR_API_KEY}"`,
-      tsExample: `const response = await fetch('${BASE_URL}/api/v1/api-keys/logs', {
+      tsExample: `const response = await fetch('${BASE_URL}/api/v1/api-keys/logs?workspace_id=wrk_6Mwd37e1YTIltWdK68LC1VLK', {
   headers: {
     'Authorization': \`Bearer \${process.env.XORU_API_KEY}\`
   }
@@ -431,7 +677,8 @@ const logs = await response.json();`,
 import requests
 
 headers = {
-    "Authorization": f"Bearer {os.environ.get('XORU_API_KEY')}"
+    "Authorization": f"Bearer {os.environ.get('XORU_API_KEY')}",
+    "X-Workspace-Id": "wrk_6Mwd37e1YTIltWdK68LC1VLK"
 }
 response = requests.get("${BASE_URL}/api/v1/api-keys/logs", headers=headers)
 print(response.json())`,
@@ -460,7 +707,7 @@ print(response.json())`,
     },
   ];
 
-  const categories = ['all', 'Short Links', 'Analytics', 'Workspaces', 'Usage & Billing', 'Audit Logs', 'System'];
+  const categories = ['all', 'Short Links', 'Analytics', 'Retargeting Pixels', 'API Keys', 'Workspaces', 'Usage & Billing', 'Audit Logs', 'System'];
 
   const filteredEndpoints = selectedCategory === 'all'
     ? endpoints
@@ -518,6 +765,11 @@ print(response.json())`,
             </div>
 
             <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
+              <Layers className="w-3.5 h-3.5 text-indigo-600" />
+              <span>X-Workspace-Id Scoped</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
               <Zap className="w-3.5 h-3.5 text-amber-500" />
               <span>KV Edge Cached</span>
             </div>
@@ -525,14 +777,14 @@ print(response.json())`,
         </div>
       </div>
 
-      {/* 2. Authentication & Rate Limiting Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* 2. Authentication, Workspace Isolation & Rate Limiting Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-3">
           <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
             <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
               <Key className="w-4 h-4" />
             </div>
-            <span>Authentication</span>
+            <span>API Key Authentication</span>
           </div>
           <p className="text-xs text-slate-600 leading-relaxed">
             Pass your Developer API key in the <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-indigo-700 font-bold">Authorization</code> header as a Bearer token or via the <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-indigo-700 font-bold">X-API-Key</code> header.
@@ -550,10 +802,31 @@ print(response.json())`,
 
         <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-3">
           <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
+            <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+              <Layers className="w-4 h-4" />
+            </div>
+            <span>Workspace Multi-Tenancy</span>
+          </div>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Pass your <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-indigo-700 font-bold">workspace_id</code> via <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-indigo-700 font-bold">X-Workspace-Id</code> header or query parameter for all endpoints (except link-specific endpoints).
+          </p>
+          <div className="rounded-xl bg-slate-900 p-3 font-mono text-xs text-slate-200 relative group">
+            <code>X-Workspace-Id: wrk_6Mwd37e1YTIltWdK68LC1VLK</code>
+            <button
+              onClick={() => copyToClipboard('X-Workspace-Id: wrk_6Mwd37e1YTIltWdK68LC1VLK', 'wrk-header')}
+              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white transition-colors"
+            >
+              {copiedSection === 'wrk-header' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-3">
+          <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
             <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
               <Zap className="w-4 h-4" />
             </div>
-            <span>Rate Limiting & Response Headers</span>
+            <span>Rate Limiting</span>
           </div>
           <p className="text-xs text-slate-600 leading-relaxed">
             Requests are rate-limited via sliding window edge counters. Exceeding limits returns <code className="font-mono bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded font-bold">429 Too Many Requests</code> with standard RFC headers:
@@ -575,7 +848,7 @@ print(response.json())`,
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900">Live API Tester & Console</h2>
-              <p className="text-xs text-slate-500">Test API requests directly against live Cloudflare Workers</p>
+              <p className="text-xs text-slate-500">Test API requests directly against live Cloudflare Workers with API Key & Workspace headers</p>
             </div>
           </div>
 
@@ -598,15 +871,28 @@ print(response.json())`,
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pt-1">
           {/* Controls */}
           <div className="lg:col-span-6 space-y-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">API Key</label>
-              <input
-                type="text"
-                value={consoleKey}
-                onChange={(e) => setConsoleKey(e.target.value)}
-                placeholder="key_test_... or key_live_..."
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-mono text-slate-900 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">API Key</label>
+                <input
+                  type="text"
+                  value={consoleKey}
+                  onChange={(e) => setConsoleKey(e.target.value)}
+                  placeholder="key_test_... or key_live_..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-mono text-slate-900 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Workspace ID</label>
+                <input
+                  type="text"
+                  value={consoleWorkspaceId}
+                  onChange={(e) => setConsoleWorkspaceId(e.target.value)}
+                  placeholder="wrk_..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-mono text-slate-900 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
@@ -627,19 +913,23 @@ print(response.json())`,
                 <select
                   value={consoleEndpoint}
                   onChange={(e) => {
-                    setConsoleEndpoint(e.target.value);
-                    if (e.target.value === '/api/v1/links' && consoleMethod === 'POST') {
-                      setConsoleBody('{\n  "title": "Quick API Link",\n  "destination_url": "https://indexdaily.in"\n}');
+                    const ep = e.target.value;
+                    setConsoleEndpoint(ep);
+                    if (ep === '/api/v1/links' && consoleMethod === 'POST') {
+                      setConsoleBody(`{\n  "workspace_id": "${consoleWorkspaceId}",\n  "title": "Quick API Link",\n  "destination_url": "https://example.com"\n}`);
+                    } else if (ep === '/api/v1/pixels' && consoleMethod === 'POST') {
+                      setConsoleBody(`{\n  "workspace_id": "${consoleWorkspaceId}",\n  "name": "Live Test Pixel",\n  "platform": "xoru"\n}`);
                     }
                   }}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 py-2 text-xs font-mono text-slate-900 focus:border-indigo-500 focus:bg-white focus:outline-none"
                 >
                   <option value="/api/v1/links">/api/v1/links</option>
                   <option value="/api/v1/analytics?period=7d">/api/v1/analytics?period=7d</option>
-                  <option value="/api/v1/workspaces">/api/v1/workspaces</option>
                   <option value="/api/v1/pixels">/api/v1/pixels</option>
+                  <option value="/api/v1/api-keys">/api/v1/api-keys</option>
                   <option value="/api/v1/api-keys/usage">/api/v1/api-keys/usage</option>
                   <option value="/api/v1/api-keys/logs">/api/v1/api-keys/logs</option>
+                  <option value="/api/v1/workspaces">/api/v1/workspaces</option>
                   <option value="/api/v1/health">/api/v1/health</option>
                 </select>
               </div>
@@ -660,7 +950,7 @@ print(response.json())`,
             <button
               onClick={handleExecuteLiveTest}
               disabled={consoleLoading}
-              className="inline-flex items-center justify-center gap-2 w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-50 transition-all"
+              className="inline-flex items-center justify-center gap-2 w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-50 transition-all cursor-pointer"
             >
               {consoleLoading ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -677,12 +967,12 @@ print(response.json())`,
               <span>Live Response Output</span>
               {consoleResponse && (
                 <span className="text-[11px] font-mono text-slate-500">
-                  {consoleResponse.status === 200 ? '200 OK' : `Status: ${consoleResponse.status}`}
+                  {consoleResponse.status === 200 || consoleResponse.status === 201 ? `${consoleResponse.status} OK` : `Status: ${consoleResponse.status}`}
                 </span>
               )}
             </div>
 
-            <div className="flex-1 rounded-xl bg-slate-900 p-3.5 font-mono text-xs text-slate-200 overflow-x-auto min-h-[160px] max-h-[260px] border border-slate-800">
+            <div className="flex-1 rounded-xl bg-slate-900 p-3.5 font-mono text-xs text-slate-200 overflow-x-auto min-h-[160px] max-h-[280px] border border-slate-800">
               {consoleLoading ? (
                 <div className="flex items-center justify-center h-full text-slate-500 text-xs">
                   Executing request to Cloudflare edge...
@@ -710,7 +1000,7 @@ print(response.json())`,
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`rounded-xl px-3.5 py-1.5 text-xs font-bold whitespace-nowrap transition-all duration-150 ${
+              className={`rounded-xl px-3.5 py-1.5 text-xs font-bold whitespace-nowrap transition-all duration-150 cursor-pointer ${
                 isActive
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50 hover:text-slate-900'
@@ -771,7 +1061,7 @@ print(response.json())`,
                 {/* Query Parameters Table */}
                 {ep.queryParams && ep.queryParams.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Query Parameters</h4>
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Query Parameters & Headers</h4>
                     <div className="overflow-x-auto rounded-xl border border-slate-200">
                       <table className="w-full text-left text-xs">
                         <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
@@ -813,7 +1103,7 @@ print(response.json())`,
                           <button
                             key={lang}
                             onClick={() => setCodeTab(ep.id, lang)}
-                            className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${
+                            className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer ${
                               currentTab === lang
                                 ? 'bg-indigo-600 text-white'
                                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -826,7 +1116,7 @@ print(response.json())`,
 
                       <button
                         onClick={() => copyToClipboard(snippet, `${ep.id}-req`)}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-white transition-colors"
+                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
                       >
                         {copiedSection === `${ep.id}-req` ? (
                           <>
@@ -855,7 +1145,7 @@ print(response.json())`,
                       </span>
                       <button
                         onClick={() => copyToClipboard(JSON.stringify(ep.responseExample, null, 2), `${ep.id}-res`)}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-white transition-colors"
+                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
                       >
                         {copiedSection === `${ep.id}-res` ? (
                           <>

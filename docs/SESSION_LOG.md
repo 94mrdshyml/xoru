@@ -800,3 +800,53 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - API Key Headers: `Authorization: Bearer key_live_...` or `X-API-Key: key_live_...`
 - **Session 19 Focus**: Dynamic Smart Routing rules engine (`smart_routes` table: Device OS, Geo ISO Country Code, A/B Traffic Split) and connecting `/dashboard/routes` UI to live backend routing execution.
 
+---
+
+## Session 19 — Multi-Tenant Workspace ID Enforcement & API Verification
+
+**Date & Time (IST):** 2026-09-18 14:40 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **Workspace ID Multi-Tenant Enforcement**:
+  - Enforced mandatory `workspace_id` in requests across all developer and workspace-scoped REST API endpoints (`POST /api/v1/links`, `GET /api/v1/links`, `GET /api/v1/analytics`, `GET /api/v1/pixels`, `POST /api/v1/pixels`, `GET /api/v1/api-keys`, `POST /api/v1/api-keys`, `GET /api/v1/api-keys/usage`, `GET /api/v1/api-keys/logs`).
+  - Accepted `workspace_id` flexibly via `X-Workspace-Id` HTTP header, `?workspace_id=...` query parameter, or JSON request body `{ "workspace_id": "..." }`.
+  - Returned standardized RFC 400 Bad Request `{ error: { code: 'MISSING_WORKSPACE_ID', message: 'workspace_id is required ...' } }` when omitted.
+- **Link-Specific & Key-Specific Exceptions**:
+  - Maintained link-specific exceptions where `link_id` is passed directly (`DELETE /api/v1/links/:id`, `GET /api/v1/analytics?link_id=...`), eliminating redundant parameter overhead.
+  - Maintained key-specific log query exceptions (`GET /api/v1/api-keys/logs?key_id=...`).
+- **Frontend Dashboard Smart Routes Integration ([`apps/frontend/app/dashboard/routes/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/routes/page.tsx))**:
+  - Connected `useWorkspace` hook to pass `?workspace_id=${activeWorkspaceId}` to `fetchLinks()` for clean workspace isolation.
+- **Interactive Developer API Documentation & Live Console Updates ([`apps/frontend/app/dashboard/docs/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/docs/page.tsx))**:
+  - Updated API reference with dedicated `X-Workspace-Id Scoped` badges, parameter tables, and multi-language snippets.
+  - Added dedicated `Workspace ID` input to the Live API Console so developers can test live requests scoped by workspace.
+  - Added complete endpoint documentation for Retargeting Pixels and Developer API Keys.
+- **Backend Test Suite Expansion ([`apps/backend/tests/`](file:///c:/vibe%20coding/xoru/apps/backend/tests/))**:
+  - Added unit test cases verifying `MISSING_WORKSPACE_ID` validation, header acceptance (`X-Workspace-Id`), query parameter parsing, and link-specific exceptions across `links.test.ts`, `analytics.test.ts`, `pixels.test.ts`, and `api-keys.test.ts`.
+  - All **55/55 backend unit tests passing green** (`bun test`).
+  - Frontend typecheck passing with **0 TypeScript errors** (`bun run typecheck`).
+
+### How We Built It
+- Surgical parameter resolution prioritizing explicit request inputs (`header > query > body > tenant`).
+- Neon Postgres query parameterization scoped strictly to the authenticated `tenant.user_id` and verified `workspace_id`.
+
+### In Scope
+- Workspace ID requirement enforcement, exception handling for link-specific routes, SmartRoutesPage workspace integration, API docs documentation, Live API tester updates, and Vitest suite expansion.
+
+### Out of Scope
+- Smart Routing execution engine (scheduled for Session 20).
+
+### Breaking Changes
+- REST API requests without `link_id` now require `workspace_id` passed via `X-Workspace-Id` header, query parameter, or JSON body.
+
+### Notes for Future Sessions
+- Live Backend: `https://xoru-backend.mridu.workers.dev`
+- Live Frontend: `https://xoru-frontend.mridu.workers.dev`
+- Test API Key: `key_test_LSNB7Lu4Nw8OqYwKF8kMmKcQvvrGTzW4`
+- Required Headers for REST API calls:
+  - `Authorization: Bearer <key>` or `X-API-Key: <key>`
+  - `X-Workspace-Id: wrk_...` (or pass `?workspace_id=wrk_...`)
+- **Session 20 Focus**: Dynamic Smart Routing rules engine (`smart_routes` table: Device OS, Geo ISO Country Code, A/B Traffic Split) and connecting `/dashboard/routes` UI to live backend routing execution.
+
+
