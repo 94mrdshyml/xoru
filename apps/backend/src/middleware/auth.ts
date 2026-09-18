@@ -67,10 +67,18 @@ export async function tenantMiddleware(c: Context, next: Next) {
   const authHeader = c.req.header('authorization') || ''
   const apiKeyHeader = c.req.header('x-api-key') || ''
   const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
-  const rawKey = apiKeyHeader || (bearerToken.startsWith('key_') ? bearerToken : '')
+  const rawKey = apiKeyHeader || (bearerToken.startsWith('xoru_') || bearerToken.startsWith('key_') ? bearerToken : '')
 
-  // 2. DEVELOPER API KEY AUTHENTICATION FLOW
-  if (rawKey && (rawKey.startsWith('key_live_') || rawKey.startsWith('key_test_') || rawKey.startsWith('key_'))) {
+  // 2. DEVELOPER API KEY AUTHENTICATION FLOW (Supports xoru_live_, xoru_test_, xoru_, key_live_, key_test_)
+  if (
+    rawKey &&
+    (rawKey.startsWith('xoru_live_') ||
+      rawKey.startsWith('xoru_test_') ||
+      rawKey.startsWith('xoru_') ||
+      rawKey.startsWith('key_live_') ||
+      rawKey.startsWith('key_test_') ||
+      rawKey.startsWith('key_'))
+  ) {
     const keyHash = await hashApiKey(rawKey)
     const startTime = performance.now()
 

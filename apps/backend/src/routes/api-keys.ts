@@ -97,7 +97,7 @@ apiKeysRouter.get('/', tenantMiddleware, async (c) => {
         user_id: tenant.user_id,
         workspace_id: workspaceId,
         name: 'Default Development Key',
-        key_prefix: 'key_live_9a8f••••••••',
+        key_prefix: 'xoru_live_9a8f••••••••',
         environment: 'live',
         monthly_limit: 10000,
         requests_count: 0,
@@ -166,10 +166,10 @@ apiKeysRouter.post('/', tenantMiddleware, async (c) => {
     expiresAt = d.toISOString()
   }
 
-  // Generate Stripe-style raw secret key: key_live_{32-chars} or key_test_{32-chars}
+  // Generate Stripe-style raw secret key: xoru_live_{32-chars} or xoru_test_{32-chars}
   const secretRandom = generateSecretToken()
-  const rawKeySecret = `key_${environment}_${secretRandom}`
-  const keyPrefix = `${rawKeySecret.slice(0, 13)}••••••••${rawKeySecret.slice(-4)}`
+  const rawKeySecret = `xoru_${environment}_${secretRandom}`
+  const keyPrefix = `${rawKeySecret.slice(0, 14)}••••••••${rawKeySecret.slice(-4)}`
   const keyHash = await hashApiKey(rawKeySecret)
   const id = generateId('key')
 

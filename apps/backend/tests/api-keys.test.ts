@@ -4,9 +4,9 @@ import { hashApiKey } from '../src/middleware/auth'
 
 describe('Developer API Keys, Rate Limiting & Audit Logging Endpoints', () => {
   it('hashApiKey correctly hashes raw secret key deterministically using SHA-256', async () => {
-    const hash1 = await hashApiKey('key_live_testsecret12345678901234567890')
-    const hash2 = await hashApiKey('key_live_testsecret12345678901234567890')
-    const hash3 = await hashApiKey('key_live_differentsecret1234567890123456')
+    const hash1 = await hashApiKey('xoru_live_testsecret12345678901234567890')
+    const hash2 = await hashApiKey('xoru_live_testsecret12345678901234567890')
+    const hash3 = await hashApiKey('xoru_live_differentsecret1234567890123456')
 
     expect(hash1).toBe(hash2)
     expect(hash1).not.toBe(hash3)
@@ -71,7 +71,7 @@ describe('Developer API Keys, Rate Limiting & Audit Logging Endpoints', () => {
     const json = await res.json<any>()
     expect(json).toHaveProperty('id')
     expect(json).toHaveProperty('key_secret')
-    expect(json.key_secret).toMatch(/^key_live_/)
+    expect(json.key_secret).toMatch(/^xoru_live_/)
     expect(json.name).toBe('Zapier Integration')
     expect(json.workspace_id).toBe('wrk_test_123')
     expect(json.monthly_limit).toBe(5000)

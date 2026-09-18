@@ -943,3 +943,47 @@ This log tracks feature additions, technical decisions, architectural changes, a
 - Live Backend: `https://xoru-backend.mridu.workers.dev`
 - Live Frontend: `https://xoru-frontend.mridu.workers.dev`
 - **Session 22 Focus**: Dynamic Smart Routing rules execution engine (`smart_routes` table: Device OS, Geo ISO Country Code, A/B Traffic Split) in the Cloudflare Worker redirect path and connecting `/dashboard/routes` UI to live backend routing execution.
+
+---
+
+## Session 22 — Developer API Key Branding (`xoru_live_` & `xoru_test_`)
+
+**Date & Time (IST):** 2026-09-18 18:30 IST  
+**Status:** Completed  
+**Branch:** `main`  
+
+### What We Built
+- **Branded Developer API Key Format**:
+  - Upgraded API key generation to produce branded keys prefixed with `xoru_live_` (Production) and `xoru_test_` (Sandbox / Testing) instead of generic `key_live_` / `key_test_`.
+  - Updated key masking to preserve the full brand prefix and initial identifiers (`xoru_live_••••••••xxxx`).
+- **Universal Auth Middleware Compatibility**:
+  - Configured auth middleware to recognize both modern `xoru_live_`, `xoru_test_`, and `xoru_` tokens as well as legacy `key_live_`, `key_test_`, and `key_` tokens seamlessly.
+  - Zero disruption for existing keys already in use.
+- **Frontend Settings & Documentation Upgrades**:
+  - Updated API Keys settings quickstart snippet generator fallback to `xoru_live_YOUR_SECRET_KEY`.
+  - Updated Developer API Documentation ([`apps/frontend/app/dashboard/docs/page.tsx`](file:///c:/vibe%20coding/xoru/apps/frontend/app/dashboard/docs/page.tsx)) interactive console default key to `xoru_test_LSNB7Lu4Nw8OqYwKF8kMmKcQvvrGTzW4` and updated endpoint response examples and placeholders.
+- **Automated Verification**:
+  - Updated backend unit tests in [`apps/backend/tests/api-keys.test.ts`](file:///c:/vibe%20coding/xoru/apps/backend/tests/api-keys.test.ts) to verify `xoru_live_` generation and deterministic hashing.
+  - All **55/55 backend unit tests passing green** (`bun test`).
+  - Frontend typecheck passing with **0 TypeScript errors** (`bun run typecheck`).
+
+### How We Built It
+- Replaced the token generator prefix in `apps/backend/src/routes/api-keys.ts` with `xoru_${environment}_${secretRandom}`.
+- Updated the key prefix mask length from 13 to 14 characters to cleanly capture `xoru_live_` / `xoru_test_` before masking.
+- Maintained deterministic SHA-256 key hashing in Cloudflare KV edge cache and Neon Postgres DB.
+
+### In Scope
+- API key generation prefix branding, auth middleware backwards compatibility, backend unit tests, frontend settings fallback, API documentation examples & interactive console, schema comments, and typecheck/test suite verification.
+
+### Out of Scope
+- Smart Routing execution engine in backend Worker (scheduled for Session 23).
+
+### Breaking Changes
+- NONE (Full backward compatibility for existing `key_live_` and `key_test_` keys).
+
+### Notes for Future Sessions
+- Live Backend: `https://xoru-backend.mridu.workers.dev`
+- Live Frontend: `https://xoru-frontend.mridu.workers.dev`
+- API Key Format: `xoru_live_...` or `xoru_test_...` (Legacy `key_live_...` / `key_test_...` still fully accepted)
+- **Session 23 Focus**: Dynamic Smart Routing rules execution engine (`smart_routes` table: Device OS, Geo ISO Country Code, A/B Traffic Split) in Cloudflare Worker redirect path and connecting `/dashboard/routes` UI to live backend routing execution.
+

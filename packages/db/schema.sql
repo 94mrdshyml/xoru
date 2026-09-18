@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
     user_id VARCHAR(64) NOT NULL, -- usr_xxx
     workspace_id VARCHAR(64) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
-    key_prefix VARCHAR(32) NOT NULL, -- e.g. 'key_live_9a8f'
+    key_prefix VARCHAR(32) NOT NULL, -- e.g. 'xoru_live_9a8f' or legacy 'key_live_9a8f'
     key_hash VARCHAR(64) UNIQUE NOT NULL, -- SHA-256 of raw secret
     environment VARCHAR(16) NOT NULL DEFAULT 'live', -- 'live' or 'test'
     monthly_limit INT NOT NULL DEFAULT 10000,

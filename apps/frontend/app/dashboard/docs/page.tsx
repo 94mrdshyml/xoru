@@ -48,7 +48,7 @@ export default function ApiDocsPage() {
   const [activeCodeTab, setActiveCodeTab] = useState<Record<string, 'curl' | 'ts' | 'python'>>({});
 
   // Interactive Live Console State
-  const [consoleKey, setConsoleKey] = useState<string>('key_test_LSNB7Lu4Nw8OqYwKF8kMmKcQvvrGTzW4');
+  const [consoleKey, setConsoleKey] = useState<string>('xoru_test_LSNB7Lu4Nw8OqYwKF8kMmKcQvvrGTzW4');
   const [consoleWorkspaceId, setConsoleWorkspaceId] = useState<string>(activeWorkspaceId || 'wrk_personal_default');
   const [consoleEndpoint, setConsoleEndpoint] = useState<string>('/api/v1/links');
   const [consoleMethod, setConsoleMethod] = useState<'GET' | 'POST'>('GET');
@@ -474,7 +474,7 @@ print(response.json())`,
           user_id: 'usr_3JSio6WOA8bg37Ob5ytOzRWlXLj',
           workspace_id: 'wrk_6Mwd37e1YTIltWdK68LC1VLK',
           name: 'Production Worker Key',
-          key_prefix: 'key_live_LSNB••••89fa',
+          key_prefix: 'xoru_live_LSNB••••89fa',
           environment: 'live',
           monthly_limit: 10000,
           requests_count: 320,
@@ -507,7 +507,7 @@ print(response.json())`,
       method: 'POST',
       path: '/api/v1/api-keys',
       title: 'Provision Developer API Key',
-      description: 'Generates a new Stripe-style API key (key_live_... or key_test_...). Secret is returned only once.',
+      description: 'Generates a new Stripe-style API key (xoru_live_... or xoru_test_...). Secret is returned only once.',
       authRequired: true,
       rateLimit: '60 req/min',
       requestBody: {
@@ -521,8 +521,8 @@ print(response.json())`,
         id: 'key_LSNB7Lu4Nw8OqYwKF8kMmKcQ',
         workspace_id: 'wrk_6Mwd37e1YTIltWdK68LC1VLK',
         name: 'Stripe Webhook API Key',
-        key_secret: 'key_live_LSNB7Lu4Nw8OqYwKF8kMmKcQvvrGTzW4',
-        key_prefix: 'key_live_LSNB••••TzW4',
+        key_secret: 'xoru_live_LSNB7Lu4Nw8OqYwKF8kMmKcQvvrGTzW4',
+        key_prefix: 'xoru_live_LSNB••••TzW4',
         environment: 'live',
         monthly_limit: 5000,
         rate_limit_per_minute: 60,
@@ -656,7 +656,7 @@ print(response.json())`,
           id: 'apilog_pOlGKEbzWJSckNBocCdUarWI',
           key_id: 'key_Y9s26F9CT7Q6pSxDv4Oky1Zj',
           key_name: 'Production Key',
-          key_prefix: 'key_live_••••89fa',
+          key_prefix: 'xoru_live_••••89fa',
           http_method: 'GET',
           endpoint: '/api/v1/links',
           status_code: 200,
@@ -790,9 +790,9 @@ print(response.json())`,
             Pass your Developer API key in the <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-indigo-700 font-bold">Authorization</code> header as a Bearer token or via the <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-indigo-700 font-bold">X-API-Key</code> header.
           </p>
           <div className="rounded-xl bg-slate-900 p-3 font-mono text-xs text-slate-200 relative group">
-            <code>Authorization: Bearer key_live_••••••••••••••••</code>
+            <code>Authorization: Bearer xoru_live_••••••••••••••••</code>
             <button
-              onClick={() => copyToClipboard('Authorization: Bearer key_live_...', 'auth-header')}
+              onClick={() => copyToClipboard('Authorization: Bearer xoru_live_...', 'auth-header')}
               className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white transition-colors"
             >
               {copiedSection === 'auth-header' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -878,7 +878,7 @@ print(response.json())`,
                   type="text"
                   value={consoleKey}
                   onChange={(e) => setConsoleKey(e.target.value)}
-                  placeholder="key_test_... or key_live_..."
+                  placeholder="xoru_test_... or xoru_live_..."
                   className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-mono text-slate-900 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>

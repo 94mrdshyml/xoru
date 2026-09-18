@@ -248,7 +248,7 @@ export default function SettingsPage() {
   };
 
   // Quickstart code snippets
-  const sampleKey = apiKeys.find((k) => k.environment === 'live')?.key_prefix.replace(/•+/g, 'secret') || 'key_live_YOUR_SECRET_KEY';
+  const sampleKey = apiKeys.find((k) => k.environment === 'live')?.key_prefix.replace(/•+/g, 'secret') || 'xoru_live_YOUR_SECRET_KEY';
 
   const curlSnippet = `curl -X POST "${backendUrl}/api/v1/links" \\
   -H "Authorization: Bearer ${sampleKey}" \\
